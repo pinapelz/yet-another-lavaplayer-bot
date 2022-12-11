@@ -1,4 +1,0 @@
-vtmusic,Queues a set number of random VTuber songs and covers
-play,Adds a song to the queue with either a URL or a search term:url
-queue,Shows the current queue of songs
-pause,Pause the music
