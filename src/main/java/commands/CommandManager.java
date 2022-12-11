@@ -24,6 +24,9 @@ public class CommandManager extends ListenerAdapter {
                 event.getGuild().getAudioManager().closeAudioConnection();
                 event.reply("OtsuRose! See you later!").queue();
                 break;
+            case "queue-recursive":
+                music.recursiveQueue(event, event.getOption("url").getAsString(), Integer.parseInt(event.getOption("amount").getAsString()));
+                break;
             case "vtmusic":
                 event.deferReply().queue();
                 music.queueTrackFromLoadedList(event, Integer.parseInt(Objects.requireNonNull(event.getOption("number")).getAsString()), "VTubermusic.txt",vTuberSongDatabase);

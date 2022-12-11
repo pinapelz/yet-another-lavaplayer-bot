@@ -27,38 +27,5 @@ public class UIPusher {
                 )
                 .queue();
     }
-    public void showQueueMenu(SlashCommandEvent event, String param, String instruction,GuildMusicManager musicManager){
-        Queue<AudioTrack> queue = musicManager.scheduler.queue;
-        List<SelectOption> trackMenuOptions = new ArrayList<SelectOption>();
-        synchronized (queue)
-        {
-            if (queue.isEmpty())
-            {
-                event.reply("The queue is currently empty!").queue();
-            }
-            else
-            {
-                int trackCount = 0;
-                for (AudioTrack track : queue)
-                {
-                    if (trackCount != 25)
-                    {
-                        SelectOption option = SelectOption.of(track.getInfo().title,param+" "+track.getInfo().title);
-                        trackMenuOptions.add(option);
-                        trackCount++;
-                    }
-                }
-                SelectionMenu menu = SelectionMenu.create("menu:class")
-                        .setPlaceholder("-Select a track-") // shows the placeholder indicating what this menu is for
-                        .setRequiredRange(1,1)// only one can be selected
-                        .addOptions(trackMenuOptions)
-                        .build();
-                event.reply(instruction)
-                        .setEphemeral(true)
-                        .addActionRow(menu)
-                        .queue();
 
-            }
-        }
-    }
 }

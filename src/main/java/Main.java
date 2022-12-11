@@ -40,6 +40,10 @@ public class Main extends ListenerAdapter {
         jda.upsertCommand(new CommandData("play","Adds a song to the queue with a URL or search terms").
                 addOption(OptionType.STRING,"term","The link or search terms of the music to queue")
                 ).queue();
+        jda.upsertCommand(new CommandData("queue-recursive","Adds a set amount of random songs from a playlist").
+                addOption(OptionType.STRING,"url","The link of the playlist")
+                .addOption(OptionType.INTEGER,"amount","The amount of songs to queue")
+        ).queue();
         jda.upsertCommand(new CommandData("leave","Clears the queue and disconnects the bot from voice channel")).queue();
         jda.upsertCommand(new CommandData("showqueue","Shows the current queue")).queue();
         jda.upsertCommand(new CommandData("pause","Pauses the player")).queue();

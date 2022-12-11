@@ -19,6 +19,8 @@ import net.dv8tion.jda.api.events.interaction.SelectionMenuEvent;
 import net.dv8tion.jda.api.events.interaction.SlashCommandEvent;
 import net.dv8tion.jda.api.events.message.guild.GuildMessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.components.selections.SelectOption;
+import net.dv8tion.jda.api.interactions.components.selections.SelectionMenu;
 import net.dv8tion.jda.api.managers.AudioManager;
 import org.jetbrains.annotations.NotNull;
 import se.michaelthelin.spotify.model_objects.specification.PlaylistTrack;
@@ -30,6 +32,7 @@ import java.awt.*;
 import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.List;
 import java.util.Queue;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
@@ -38,7 +41,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class Music extends ListenerAdapter {
     ArrayList<String> currentlyLoadedPlaylist = new ArrayList<>();
     String ytapiKey;
-    private final YouTubeAPI youtubeAPI = new YouTubeAPI(ytapiKey);
     static String append = "$";
     private final URLChecker urlCheck = new URLChecker();
     UIPusher uiPusher = new UIPusher();
@@ -124,19 +126,53 @@ public class Music extends ListenerAdapter {
         if((append+"holoadd").equals(command[0])){
             event.getChannel().sendMessage("The url has been successfully added to the database").queue();
         }
-        else if("!dev".equals(command[0])){
+       /* else if("!dev".equals(command[0])){
             try {
-                System.out.println("Attempting to play");
+                YouTubeAPI youTubeAPI = new YouTubeAPI(ytapiKey);
+              youTubeAPI.getAllURLPlaylist("PLQmVFdwvZgfXlb2RDXWV1NaPXgYPu786G");
             }
             catch (Exception e){
 
             }
-        }
+        }*/
 
         super.onGuildMessageReceived(event);
     }
     public void showQueueMenu(SlashCommandEvent event, String param, String instruction){
-        uiPusher.showQueueMenu(event,param,instruction,getGuildAudioPlayer(event.getGuild()));
+        Guild guild = event.getGuild();
+        GuildMusicManager mng = getGuildAudioPlayer(guild);
+        Queue<AudioTrack> queue = getGuildAudioPlayer(event.getGuild()).scheduler.queue;
+        List<SelectOption> trackMenuOptions = new ArrayList<SelectOption>();
+        synchronized (queue)
+        {
+            if (queue.isEmpty())
+            {
+                event.reply("The queue is currently empty!").queue();
+            }
+            else
+            {
+                int trackCount = 0;
+                for (AudioTrack track : queue)
+                {
+                    if (trackCount != 25)
+                    {
+                        SelectOption option = SelectOption.of(track.getInfo().title,param+" "+track.getInfo().title);
+                        trackMenuOptions.add(option);
+                        trackCount++;
+                    }
+                }
+                SelectionMenu menu = SelectionMenu.create("menu:class")
+                        .setPlaceholder("-Select a track-") // shows the placeholder indicating what this menu is for
+                        .setRequiredRange(1,1)// only one can be selected
+                        .addOptions(trackMenuOptions)
+                        .build();
+                event.reply(instruction)
+                        .setEphemeral(true)
+                        .addActionRow(menu)
+                        .queue();
+
+            }
+        }
     }
     public void showControls(SlashCommandEvent event){
         uiPusher.showControls(event);
@@ -164,6 +200,7 @@ public class Music extends ListenerAdapter {
     }
 
     public void playMusic(SlashCommandEvent event){
+       final YouTubeAPI youtubeAPI = new YouTubeAPI(ytapiKey);
         try {
             String userQuery = event.getOption("term").getAsString();
             if (urlCheck.isURL(userQuery) && !urlCheck.getURLType(userQuery).equals("spotify")&&!urlCheck.getURLType(userQuery).equals("spotify-playlist")) { //The term is a URL
@@ -450,6 +487,26 @@ public class Music extends ListenerAdapter {
 
 
     }
+    public void recursiveQueue(SlashCommandEvent event, String playlistUrl,int amount){
+        final YouTubeAPI youtubeAPI = new YouTubeAPI(ytapiKey);
+        System.out.println(urlCheck.getURLType(playlistUrl));
+        if(urlCheck.isURL(playlistUrl) && urlCheck.getURLType(playlistUrl).equals("spotify-playlist")){
+            event.deferReply().queue();
+            try {
+                for(int i = 0;i<amount;i++) {
+                    String randomSong = spotifyAPI.getRandomPlaylistTrack_Sync(urlCheck.getSpotifyPlaylistID(playlistUrl));
+                    loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(spotifyAPI.getSearchTerm_sync(randomSong)), false);
+                }
+                event.getHook().sendMessage("Queueing " + amount + " songs recursively").queue();
+            }
+            catch(Exception e){
+                event.getHook().sendMessage("Error: " + e.getMessage()).queue();
+            }
+            System.out.println("Spotify Playlist Recursive");
+        }
+
+
+    }
     public void loadAndPlay(final @NotNull TextChannel channel, final String trackUrl, boolean returnMessage) {
         GuildMusicManager musicManager = getGuildAudioPlayer(channel.getGuild());
         playerManager.loadItemOrdered(musicManager, trackUrl, new AudioLoadResultHandler() {
@@ -466,7 +523,6 @@ public class Music extends ListenerAdapter {
             @Override
             public void playlistLoaded(AudioPlaylist playlist) {
                 AudioTrack firstTrack = playlist.getSelectedTrack();
-
                 if (firstTrack == null) {
                     firstTrack = playlist.getTracks().get(0);
                 }
