@@ -1,65 +1,73 @@
 package commands;
 
 import audio.Music;
-import net.dv8tion.jda.api.entities.TextChannel;
-import net.dv8tion.jda.api.events.guild.GuildReadyEvent;
 import net.dv8tion.jda.api.events.interaction.SlashCommandEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import net.dv8tion.jda.api.interactions.commands.build.CommandData;
-import utility.URLChecker;
 
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Objects;
 
 public class CommandManager extends ListenerAdapter {
     Music music;
+    String vTuberSongDatabase = "https://pinapelz.github.io/vTuberDiscordBot/hololiveMusic.txt";
     public CommandManager(Music music){
         this.music = music;
     }
     @Override
     public void onSlashCommand(SlashCommandEvent event) {
         String command = event.getName(); //test
-        if (command.equals("play")) {
-            music.playMusic(event);
-        }
-        else if(command.equals("leave")){
-            event.getGuild().getAudioManager().setSendingHandler(null);
-            event.getGuild().getAudioManager().closeAudioConnection();
-            event.reply("OtsuRose! See you later!").queue();
-        }
-        else if(command.equals("vtmusic")){
-            event.deferReply().queue();
-            music.queueVTMusic((TextChannel) event.getChannel(),Integer.parseInt(event.getOption("number").getAsString()));
-            event.getHook().sendMessage("Queued up " + Integer.parseInt(event.getOption("number").getAsString())+" songs!").queue();
-        }
-        else if(command.equals("showqueue")){
-            music.showQueue((TextChannel) event.getChannel(), event);
-        }
-        else if(command.equals("skip")){
-            music.skipTrack((TextChannel) event.getChannel(),event);
+        switch (command) {
+            case "play":
+                music.playMusic(event);
+                break;
+            case "leave":
+                Objects.requireNonNull(event.getGuild()).getAudioManager().setSendingHandler(null);
+                event.getGuild().getAudioManager().closeAudioConnection();
+                event.reply("OtsuRose! See you later!").queue();
+                break;
+            case "vtmusic":
+                event.deferReply().queue();
+                music.queueTrackFromLoadedList(event, Integer.parseInt(Objects.requireNonNull(event.getOption("number")).getAsString()), "VTubermusic.txt",vTuberSongDatabase);
+                event.getHook().sendMessage("Queued up " + Integer.parseInt(Objects.requireNonNull(event.getOption("number")).getAsString()) + " songs!").queue();
+                break;
+            case "showqueue":
+                music.showQueue(event);
+                break;
+            case "skip":
+                music.skipTrack(event);
 
-        }
-        else if(command.equals("pause")){
-            music.pausePlayer((TextChannel) event.getChannel(),event);
+                break;
+            case "pause":
+                music.pausePlayer(event);
 
-        }
-        else if(command.equals("nowplaying")){
-            music.showNowPlaying(event);
+                break;
+            case "controls":
+                music.showControls(event);
 
-        }
-        else if(command.equals("stop")){
-            music.stopPlayer(event);
+                break;
+            case "shuffle":
+                music.shuffleQueue(event);
 
-        }
-        else if(command.equals("volume")){
-            music.setVolume(event,event.getOption("volume").getAsString());
+                break;
+            case "nowplaying":
+                music.showNowPlaying(event);
+
+                break;
+            case "stop":
+                music.stopPlayer(event);
+
+                break;
+            case "volume":
+                music.setVolume(event, Objects.requireNonNull(event.getOption("volume")).getAsString());
+                break;
+            case "remove":
+                music.showQueueMenu(event, "remove-queue", "Select a track to remove below");
+
+                break;
+            case "inspect":
+                music.showQueueMenu(event, "inspect-queue", "Select a track to inspect below");
+                break;
         }
         super.onSlashCommand(event);
     }
-    @Override
-    public void onGuildReady(GuildReadyEvent event){
-        List<CommandData> commandData = new ArrayList<>();
-    }
+
 }

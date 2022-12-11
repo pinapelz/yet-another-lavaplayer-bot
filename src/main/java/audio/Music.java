@@ -1,4 +1,5 @@
 package audio;
+
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
@@ -7,46 +8,51 @@ import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
+import commands.UIPusher;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.MessageBuilder;
-import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.TextChannel;
+import net.dv8tion.jda.api.entities.VoiceChannel;
+import net.dv8tion.jda.api.events.interaction.ButtonClickEvent;
+import net.dv8tion.jda.api.events.interaction.SelectionMenuEvent;
 import net.dv8tion.jda.api.events.interaction.SlashCommandEvent;
 import net.dv8tion.jda.api.events.message.guild.GuildMessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.managers.AudioManager;
 import org.jetbrains.annotations.NotNull;
-import org.json.JSONArray;
-import org.json.JSONObject;
-import org.jsoup.Jsoup;
+import se.michaelthelin.spotify.model_objects.specification.PlaylistTrack;
+import utility.EmbedMaker;
 import utility.SpotifyAPI;
 import utility.URLChecker;
-
+import utility.YouTubeAPI;
 import java.awt.*;
 import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Queue;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
-
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class Music extends ListenerAdapter {
-    ArrayList<String> hololiveMusicURL = new ArrayList<String>();
-    String ytapiKey = "";
-    String spotifyapiKey = "";
-    static String append = "!";
-    private URLChecker urlCheck = new URLChecker();
+    ArrayList<String> currentlyLoadedPlaylist = new ArrayList<>();
+    String ytapiKey;
+    private final YouTubeAPI youtubeAPI = new YouTubeAPI(ytapiKey);
+    static String append = "$";
+    private final URLChecker urlCheck = new URLChecker();
+    UIPusher uiPusher = new UIPusher();
     private final AudioPlayerManager playerManager;
     private final Map<Long, GuildMusicManager> musicManagers;
-    private SpotifyAPI spotifyAPI = new SpotifyAPI();
+    private final SpotifyAPI spotifyAPI = new SpotifyAPI();
+    private final EmbedMaker embedMaker = new EmbedMaker();
     public Music(String append, String ytapiKey) {
         this.musicManagers = new HashMap<>();
         this.ytapiKey = ytapiKey;
-        this.spotifyapiKey = spotifyapiKey;
-        this.append = append;
+        Music.append = append;
         this.playerManager = new DefaultAudioPlayerManager();
         AudioSourceManagers.registerRemoteSources(playerManager);
         AudioSourceManagers.registerLocalSource(playerManager);
-        System.out.println("Filling Music List");
     }
     private synchronized GuildMusicManager getGuildAudioPlayer(Guild guild) {
         long guildId = Long.parseLong(guild.getId());
@@ -60,12 +66,21 @@ public class Music extends ListenerAdapter {
 
         return musicManager;
     }
-    private void populateVTuberMusic(){
+
+    private void populateFileFromURL(String link,String fileName){
         try {
-            URL url = new URL("https://pinapelz.github.io/vTuberDiscordBot/hololiveMusic.txt");
+            URL url = new URL(link);
             BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
             String line;
-            FileWriter writer = new FileWriter("data//hololiveMusic.txt");
+            File f = new File(fileName);
+            if(!f.exists()){ //if file doesn't exist, create it
+                f.createNewFile();
+            }else{//if file exists, delete it
+                f.delete();
+                f.createNewFile();
+            }
+
+            FileWriter writer = new FileWriter("data//"+fileName);
             while ((line = in.readLine()) != null) {
                 writer.write(line+"\n");
             }
@@ -79,51 +94,39 @@ public class Music extends ListenerAdapter {
             System.out.println("I/O Error: " + e.getMessage());
         }
     }
-    private void fillVTuberMusic(){
-        populateVTuberMusic();
+    private void fillLoadedPlaylist(String url,String fileName){
+        populateFileFromURL(url,fileName);
         Scanner s = null;
         try {
-            s = new Scanner(new File("data//hololiveMusic.txt"));
+            s = new Scanner(new File("data//"+fileName));
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
-        while (s.hasNext()){
-            hololiveMusicURL.add(s.nextLine());
+        while (true){
+            assert s != null;
+            if (!s.hasNext()) break;
+            currentlyLoadedPlaylist.add(s.nextLine());
         }
         s.close();
     }
+    public void queueTrackFromLoadedList(SlashCommandEvent event, int songsToQueue,String fileName,String url){
+        fillLoadedPlaylist(url,fileName);
+        Collections.shuffle(currentlyLoadedPlaylist);
+        for (int i = 0;i<songsToQueue;i++){
+            loadAndPlay((TextChannel) event.getChannel(), currentlyLoadedPlaylist.get(i),false);
+        }
+    }
+
     @Override
     public void onGuildMessageReceived(GuildMessageReceivedEvent event) {
-        Guild guild = event.getGuild();
-        GuildMusicManager mng = getGuildAudioPlayer(guild);
-        TrackScheduler scheduler = mng.scheduler;
         String[] command = event.getMessage().getContentRaw().split(" ", 2);
 
-        if ((append+"play").equals(command[0]) && command.length == 2) {
-            loadAndPlay(event.getChannel(), command[1],true);
-        }
-        else if((append+"refreshlist").equals(command[0])){
-            event.getChannel().sendMessage("Refreshing songs database").queue();
-            fillVTuberMusic();
-            event.getChannel().sendMessage("Refresh Complete!").queue();
-        }
-        else if ((append+"shuffle").equals(command[0]))
-        {
-            if (scheduler.queue.isEmpty())
-            {
-                event.getChannel().sendMessage("The queue is currently empty!").queue();
-                return;
-            }
-
-            scheduler.shuffle();
-            event.getChannel().sendMessage("The queue has been shuffled!").queue();
-        }
-        else if("!holoadd".equals(command[0])){
+        if((append+"holoadd").equals(command[0])){
             event.getChannel().sendMessage("The url has been successfully added to the database").queue();
         }
         else if("!dev".equals(command[0])){
             try {
-                spotifyAPI.clientCredentials_Sync();
+                System.out.println("Attempting to play");
             }
             catch (Exception e){
 
@@ -132,29 +135,59 @@ public class Music extends ListenerAdapter {
 
         super.onGuildMessageReceived(event);
     }
+    public void showQueueMenu(SlashCommandEvent event, String param, String instruction){
+        uiPusher.showQueueMenu(event,param,instruction,getGuildAudioPlayer(event.getGuild()));
+    }
+    public void showControls(SlashCommandEvent event){
+        uiPusher.showControls(event);
+    }
+    public void shuffleQueue(SlashCommandEvent event){
+        Guild guild = event.getGuild();
+        GuildMusicManager mng = getGuildAudioPlayer(guild);
+        Queue<AudioTrack> queue = getGuildAudioPlayer(event.getGuild()).scheduler.queue;
+        if (queue.isEmpty())
+        {
+            event.reply("The queue is currently empty!").queue();
+            return;
+        }
+        else{
+
+            ArrayList<Object> currentQueue = new ArrayList(queue); //Conversion of queue to arraylist to allow for shuffling
+            Collections.shuffle(currentQueue);
+            BlockingQueue<AudioTrack> newQueue =  new LinkedBlockingQueue<>();
+            for (Object track : currentQueue) {
+                newQueue.add((AudioTrack) track);
+            }
+            mng.scheduler.queue = newQueue;
+        }
+        event.reply("The queue has been shuffled!").queue();
+    }
+
     public void playMusic(SlashCommandEvent event){
         try {
             String userQuery = event.getOption("term").getAsString();
             if (urlCheck.isURL(userQuery) && !urlCheck.getURLType(userQuery).equals("spotify")&&!urlCheck.getURLType(userQuery).equals("spotify-playlist")) { //The term is a URL
                 event.reply("Found Video: " + userQuery).queue();
                 loadAndPlay((TextChannel) event.getChannel(), userQuery, false);
-            } else {
+            }
+            else { //Run checks if its not a directly playable URL
                 try {
                     if (urlCheck.getURLType(userQuery).equals("spotify")){
 
                         event.deferReply().queue();
-                        event.getHook().sendMessage("Matched Video From Spotify: " + returnTopVideoURL(spotifyAPI.getSearchTerm_sync(urlCheck.getSpotifyTrackID(userQuery)))).queue();
-                        loadAndPlay((TextChannel) event.getChannel(), returnTopVideoURL(spotifyAPI.getSearchTerm_sync(urlCheck.getSpotifyTrackID(userQuery))), true);
+                        event.getHook().sendMessage("Matched Video From Spotify: " + youtubeAPI.returnTopVideoURL(spotifyAPI.getSearchTerm_sync(urlCheck.getSpotifyTrackID(userQuery)))).queue();
+                        loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(spotifyAPI.getSearchTerm_sync(urlCheck.getSpotifyTrackID(userQuery))), true);
                     }
                     else if(urlCheck.getURLType(userQuery).equals("spotify-playlist")){
                         event.deferReply().queue();
-                        String randomSong = spotifyAPI.getPlaylist_Sync(urlCheck.getSpotifyPlaylistID(userQuery));
-                        event.getHook().sendMessage("Matched Video From Spotify Playlist: " + returnTopVideoURL(spotifyAPI.getSearchTerm_sync(randomSong))).queue();
-                        loadAndPlay((TextChannel) event.getChannel(), returnTopVideoURL(spotifyAPI.getSearchTerm_sync(randomSong)), true);
+                        //TODO: Add playlist support using selection menu
+                        String randomSong = spotifyAPI.getRandomPlaylistTrack_Sync(urlCheck.getSpotifyPlaylistID(userQuery));
+                        event.getHook().sendMessage("Matched Video From Spotify Playlist: " + youtubeAPI.returnTopVideoURL(spotifyAPI.getSearchTerm_sync(randomSong))).queue();
+                        loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(spotifyAPI.getSearchTerm_sync(randomSong)), true);
                     }
                     else {
-                        event.reply("Found Video: " + returnTopVideoURL(userQuery)).queue();
-                        loadAndPlay((TextChannel) event.getChannel(), returnTopVideoURL(userQuery), true);
+                        event.reply("Found Video: " + youtubeAPI.returnTopVideoURL(userQuery)).queue();
+                        loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(userQuery), true);
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -163,12 +196,31 @@ public class Music extends ListenerAdapter {
 
         }
         catch(Exception e){
-            event.reply("Error! Hazukashii! " + e.toString());
+            event.reply("Error! Hazukashii! " + e);
         }
     }
 
-    public void setVolume( SlashCommandEvent event, String command){
+    //TODO: Finish the feature of showing spotify menu
+    public void showSpotifyMenu(String playlistID, SlashCommandEvent event){
+        PlaylistTrack[] tracks = spotifyAPI.getPlaylist_Sync(playlistID);
+        ArrayList<PlaylistTrack[]> trackPages = new ArrayList<PlaylistTrack[]>();
+        int chunk = 25; // chunk size to divide
+        for(int i=0;i<tracks.length;i+=chunk){
+            System.out.println(Arrays.toString(Arrays.copyOfRange(tracks, i, Math.min(tracks.length,i+chunk))));
+            trackPages.add(Arrays.copyOfRange(tracks, i, Math.min(tracks.length,i+chunk)));
+        }
+        for(int i = 0;i < trackPages.size();i++){
+            for(int j = 0; j < trackPages.get(i).length; j++){
+             //   SelectOption option = SelectOption.of(trackPages.get(i)[j].getTrack().getName(),param+" "+track.getInfo().title);
+                //trackMenuOptions.add(option);
+
+            }
+        }
+    }
+
+    public void setVolume(SlashCommandEvent event, String command){
         Guild guild = event.getGuild();
+        assert guild != null;
         GuildMusicManager mng = getGuildAudioPlayer(guild);
         AudioPlayer player = mng.player;
         if (command.equals("CHECK"))
@@ -190,6 +242,7 @@ public class Music extends ListenerAdapter {
             }
         }
     }
+
     public void stopPlayer(SlashCommandEvent event){
         Guild guild = event.getGuild();
         GuildMusicManager mng = getGuildAudioPlayer(guild);
@@ -200,7 +253,8 @@ public class Music extends ListenerAdapter {
         player.setPaused(false);
         event.reply("Playback has been completely stopped and the queue has been cleared.").queue();
     }
-    public void pausePlayer(final TextChannel channel, SlashCommandEvent event){
+
+    public void pausePlayer(SlashCommandEvent event){
         Guild guild = event.getGuild();
         GuildMusicManager mng = getGuildAudioPlayer(guild);
         AudioPlayer player = mng.player;
@@ -215,15 +269,7 @@ public class Music extends ListenerAdapter {
         else
             event.reply("The player has resumed playing.").queue();
     }
-    public void queueVTMusic(final TextChannel channel, int songsToQueue){
-        fillVTuberMusic();
-        Collections.shuffle(hololiveMusicURL);
-        System.out.println("Requesting to queue " + songsToQueue + " songs");
-        System.out.println("Queueing all Hololive Music");
-        for (int i = 0;i<songsToQueue;i++){
-            loadAndPlay(channel, hololiveMusicURL.get(i),false);
-        }
-    }
+
     public void showNowPlaying(SlashCommandEvent event){
         Guild guild = event.getGuild();
         GuildMusicManager mng = getGuildAudioPlayer(guild);
@@ -233,40 +279,30 @@ public class Music extends ListenerAdapter {
         {
             String currentTrackUrl  = currentTrack.getInfo().uri;
             String currentTrackUrlType = urlCheck.getURLType(currentTrackUrl);
-            String title = currentTrack.getInfo().title;
             System.out.println(currentTrack.getInfo().uri);
             String position = getTimestamp(currentTrack.getPosition());
             String duration = getTimestamp(currentTrack.getDuration());
             if(currentTrackUrlType=="yt") { //YOUTUBE EMBED
-                EmbedBuilder embed = new EmbedBuilder()
-                        .setColor(new Color(0xFD0001))
-                        .setTitle("Now Playing: " + title)
-                        .setDescription(currentTrack.getInfo().author)
-                        .setImage("https://img.youtube.com/vi/" + currentTrack.getIdentifier() + "/hqdefault.jpg");
-                embed.addField("Timestamp: ", "**[" + position + "/" + duration + "]**", false);
-                embed.addField("", "https://www.youtube.com/watch?v=" + currentTrack.getIdentifier(), false);
+                EmbedBuilder embed = embedMaker.makeNowPlayingEmbed(currentTrack,position,duration,
+                        "https://img.youtube.com/vi/" + currentTrack.getIdentifier() + "/hqdefault.jpg",
+                        "https://www.youtube.com/watch?v=" + currentTrack.getIdentifier(),new Color(0xFD0001));
                 MessageBuilder messageBuilder = (MessageBuilder) new MessageBuilder().setEmbeds(embed.build());
                 event.reply(messageBuilder.build()).queue();
             }
             else if(currentTrackUrlType=="snd") { //SOUNDCLOUD EMBED
-                EmbedBuilder embed = new EmbedBuilder()
-                        .setColor(new Color(0xFD5401))
-                        .setTitle("Now Playing: " + title)
-                        .setDescription(currentTrack.getInfo().author);
-                embed.addField("Timestamp: ", "**[" + position + "/" + duration + "]**", false);
-                embed.addField("", currentTrack.getInfo().uri, false);
+                EmbedBuilder embed = embedMaker.makeNowPlayingEmbed(currentTrack,position,duration,
+                        "https://1000logos.net/wp-content/uploads/2021/04/Soundcloud-logo.png",
+                        currentTrack.getInfo().uri,new Color(0xFD5401));
                 MessageBuilder messageBuilder = (MessageBuilder) new MessageBuilder().setEmbeds(embed.build());
+
                 event.reply(messageBuilder.build()).queue();
             }
             else if(currentTrackUrlType=="twitch"){ //TWITCH EMBED
-                System.out.println("https://static-cdn.jtvnw.net/previews-ttv/live_user_" + currentTrack.getIdentifier() + "-440x248.jpg");
-                EmbedBuilder embed = new EmbedBuilder()
-                        .setColor(new Color(0xA86FFE))
-                        .setTitle("Now Playing: " + title)
-                        .setDescription(currentTrack.getInfo().author)//https://static-cdn.jtvnw.net/previews-ttv/live_user_cdawgva-440x248.jpg
-                        .setImage("https://static-cdn.jtvnw.net/previews-ttv/live_user_" + currentTrack.getIdentifier().replaceAll("https://www.twitch.tv/","") + "-440x248.jpg");
-                embed.addField("Timestamp: ", "Currently Live!", false);
-                embed.addField("", currentTrack.getIdentifier(), false);
+                EmbedBuilder embed = embedMaker.makeNowPlayingEmbed(currentTrack,"Currently","Live",
+                        "https://static-cdn.jtvnw.net/previews-ttv/live_user_" +
+                                currentTrack.getIdentifier().replaceAll("https://www.twitch.tv/","") + "-440x248.jpg",
+                        currentTrack.getIdentifier(),
+                        new Color(0xA86FFE));
                 MessageBuilder messageBuilder = (MessageBuilder) new MessageBuilder().setEmbeds(embed.build());
                 event.reply(messageBuilder.build()).queue();
             }
@@ -275,13 +311,14 @@ public class Music extends ListenerAdapter {
             event.reply("The player is not currently playing anything!").queue();
         }
     }
-    public void showQueue(final TextChannel channel, @NotNull SlashCommandEvent event){
+
+    public void showQueue(SlashCommandEvent event){
         Queue<AudioTrack> queue = getGuildAudioPlayer(event.getGuild()).scheduler.queue;
         synchronized (queue)
         {
             if (queue.isEmpty())
             {
-                channel.sendMessage("The queue is currently empty!").queue();
+                event.reply("The queue is currently empty!").queue();
             }
             else
             {
@@ -301,8 +338,117 @@ public class Music extends ListenerAdapter {
                 }
                 sb.append("\n").append("Total Queue Time Length: ").append(getTimestamp(queueLength)+"```");
                 event.reply(sb.toString()).queue();
+
             }
         }
+    }
+
+
+    @Override
+    public void onSelectionMenu(SelectionMenuEvent event){
+        if(event.getValues().get(0).contains("remove-queue")) {
+            boolean deletedSong = false;
+            Queue<AudioTrack> queue = getGuildAudioPlayer(event.getGuild()).scheduler.queue;
+            BlockingQueue<AudioTrack> newQueue =  new LinkedBlockingQueue<>();
+            String trackName = event.getValues().get(0).replaceAll("remove-queue ", "");
+            synchronized (queue) {
+                if (queue.isEmpty())
+                {
+                    event.reply("The queue is currently empty!").queue();
+                }
+                else {
+                    for (AudioTrack track : queue) {
+                        if (!track.getInfo().title.equals(trackName)) {
+                            newQueue.add(track);
+                        }
+                        else{
+                            deletedSong = true;
+                        }
+                    }
+                    getGuildAudioPlayer(event.getGuild()).scheduler.queue = newQueue;
+                    if(deletedSong){
+                        event.reply("Removed " + trackName + " from the queue!").queue();
+                    }
+                    else{
+                        event.reply("Could not find " + trackName + " in the queue!").queue();
+                    }
+
+                }
+
+            }
+        }
+
+        else if(event.getValues().get(0).contains("inspect-queue")) { //THIS FEAUTURE IS NOT FINISHED
+            //TODO: FINISH THE INSPECT QUEUE FEATURE
+            Queue<AudioTrack> queue = getGuildAudioPlayer(event.getGuild()).scheduler.queue;
+            BlockingQueue<AudioTrack> newQueue =  new LinkedBlockingQueue<>();
+            String trackName = event.getValues().get(0).replaceAll("inspect-queue ", "");
+            synchronized (queue) {
+                if (queue.isEmpty())
+                {
+                    event.reply("The queue is currently empty!").queue();
+
+                }
+                else {
+                    for (AudioTrack track : queue) {
+                        if (!track.getInfo().title.equals(trackName)) {
+                            newQueue.add(track);
+                        }
+                        else{
+
+                        }
+                    }
+                    getGuildAudioPlayer(event.getGuild()).scheduler.queue = newQueue;
+                }
+
+            }
+        }
+    }
+    @Override
+    public void onButtonClick(ButtonClickEvent event){
+        Guild guild = event.getGuild();
+        GuildMusicManager mng = getGuildAudioPlayer(guild);
+        AudioPlayer player = mng.player;
+        if(event.getComponentId().equals("action-volumedown")){
+            int newVolume = Math.max(10, Math.min(100, player.getVolume()-5));
+            int oldVolume = player.getVolume();
+            player.setVolume(newVolume);
+            event.reply("Player volume changed from `" + oldVolume + "` to `" + newVolume + "`").queue();
+
+        }
+        else if(event.getComponentId().equals("action-volumeup")){
+            int newVolume = Math.max(10, Math.min(100, player.getVolume()+5));
+            int oldVolume = player.getVolume();
+            player.setVolume(newVolume);
+            event.reply("Player volume changed from `" + oldVolume + "` to `" + newVolume + "`").queue();
+
+        }
+        else if(event.getComponentId().equals("action-pause")){
+            if (player.getPlayingTrack() == null)
+            {
+                event.reply("Cannot pause or resume player because no track is loaded for playing.").queue();
+                return;
+            }
+            player.setPaused(!player.isPaused());
+            if (player.isPaused())
+                event.reply("The player has been paused.").queue();
+            else
+                event.reply("The player has resumed playing.").queue();
+        }
+        else if(event.getComponentId().equals("action-stop")){
+            TrackScheduler scheduler = mng.scheduler;
+            scheduler.queue.clear();
+            player.stopTrack();
+            player.setPaused(false);
+            event.reply("Playback has been completely stopped and the queue has been cleared.").queue();
+        }
+        else if(event.getComponentId().equals("action-skip")){
+            GuildMusicManager musicManager = getGuildAudioPlayer(event.getGuild());
+            musicManager.scheduler.nextTrack();
+            event.reply("Skipped to next track.").queue();
+        }
+
+
     }
     public void loadAndPlay(final @NotNull TextChannel channel, final String trackUrl, boolean returnMessage) {
         GuildMusicManager musicManager = getGuildAudioPlayer(channel.getGuild());
@@ -357,8 +503,8 @@ public class Music extends ListenerAdapter {
 
     }
 
-    public void skipTrack(TextChannel channel,SlashCommandEvent event) {
-        GuildMusicManager musicManager = getGuildAudioPlayer(channel.getGuild());
+    public void skipTrack(SlashCommandEvent event) {
+        GuildMusicManager musicManager = getGuildAudioPlayer(event.getGuild());
         musicManager.scheduler.nextTrack();
 
         event.reply("Skipped to next track.").queue();
@@ -383,22 +529,6 @@ public class Music extends ListenerAdapter {
         else
             return String.format("%02d:%02d", minutes, seconds);
     }
-
-    public String returnTopVideoURL(String keyword) throws IOException {
-        String url = "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q="+keyword+"&type=video&key="+ytapiKey;
-        url = url.replaceAll(" ", "%20");
-        String data = Jsoup.connect(url).ignoreContentType(true).execute().body();
-        JSONObject obj = new JSONObject(data);
-        JSONArray arr = obj.getJSONArray("items");
-        String videoID = "";
-        for (int i = 0; i < arr.length(); i++)
-        {
-            videoID = arr.getJSONObject(i).getJSONObject("id").getString("videoId");
-            System.out.println("Parsed ID "+ videoID);
-        }
-        return "https://www.youtube.com/watch?v="+videoID;
-    }
-
 
 
 

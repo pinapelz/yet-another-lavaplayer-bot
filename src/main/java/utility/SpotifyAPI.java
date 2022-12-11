@@ -13,9 +13,6 @@ import se.michaelthelin.spotify.requests.data.playlists.GetPlaylistRequest;
 import se.michaelthelin.spotify.requests.data.tracks.GetTrackRequest;
 import java.io.FileReader;
 import java.time.Instant;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 public class SpotifyAPI {
     private static final String clientId = readSetting("spotifyClientID");
     private static final String clientSecret = readSetting("spotifyClientSecret");
@@ -38,7 +35,6 @@ public class SpotifyAPI {
         String searchQuery = "";
         try {
            GetTrackRequest getTrackRequest = spotifyApi.getTrack(trackid)
-//          .market(CountryCode.SE)
                     .build();
             final Track track = getTrackRequest.execute();
             searchQuery = track.getName();
@@ -53,13 +49,12 @@ public class SpotifyAPI {
         return searchQuery;
 
     }
-    public static String getPlaylist_Sync(String playlistId) {
+    public static String getRandomPlaylistTrack_Sync(String playlistId) {
         checkRefreshToken();
         GetPlaylistRequest getPlaylistRequest = spotifyApi.getPlaylist(playlistId).build();
         try {
             Playlist playlist = getPlaylistRequest.execute();
             PlaylistTrack[] tracks = playlist.getTracks().getItems();
-            //pick a random track and return it
             int randomTrack = (int) (Math.random() * tracks.length);
             System.out.println(tracks[randomTrack].getTrack().getId());
             return tracks[randomTrack].getTrack().getId();
@@ -67,6 +62,18 @@ public class SpotifyAPI {
             System.out.println("Error: " + e.getMessage());
         }
         return "";
+    }
+    public static PlaylistTrack[] getPlaylist_Sync(String playlistId) {
+        checkRefreshToken();
+        GetPlaylistRequest getPlaylistRequest = spotifyApi.getPlaylist(playlistId).build();
+        try {
+            Playlist playlist = getPlaylistRequest.execute();
+            PlaylistTrack[] tracks = playlist.getTracks().getItems();
+            return tracks;
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+        return null;
     }
     public static void clientCredentials_Sync() {
         try {
