@@ -5,6 +5,8 @@ import org.json.JSONObject;
 import org.jsoup.Jsoup;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
 public class YouTubeAPI {
@@ -13,8 +15,8 @@ public class YouTubeAPI {
         this.ytapiKey = ytapiKey;
     }
     public String returnTopVideoURL(String keyword )throws IOException {
-        String url = "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q="+keyword+"&type=video&key="+ytapiKey;
-        url = url.replaceAll(" ", "%20");
+        String url = "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q="+ URLEncoder.encode(keyword, StandardCharsets.UTF_8)+"&type=video&key="+ytapiKey;
+        System.out.println(url);
         String data = Jsoup.connect(url).ignoreContentType(true).execute().body();
         JSONObject obj = new JSONObject(data);
         JSONArray arr = obj.getJSONArray("items");

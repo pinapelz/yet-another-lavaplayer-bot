@@ -1,5 +1,4 @@
 package utility;
-
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import se.michaelthelin.spotify.SpotifyApi;
@@ -16,7 +15,6 @@ import java.time.Instant;
 public class SpotifyAPI {
     private static final String clientId = readSetting("spotifyClientID");
     private static final String clientSecret = readSetting("spotifyClientSecret");
-
     public static String spotifyapiKey = "";
     public static long lastRefresh = 0;
     private static final SpotifyApi spotifyApi = new SpotifyApi.Builder()
@@ -25,26 +23,26 @@ public class SpotifyAPI {
             .build();
     private static final ClientCredentialsRequest clientCredentialsRequest = spotifyApi.clientCredentials()
             .build();
-
-
     public SpotifyAPI(){
         this.spotifyapiKey = readSetting("spotifyApi");
     }
     public static String getSearchTerm_sync(String trackid) {
         checkRefreshToken();
         String searchQuery = "";
-        try {
-           GetTrackRequest getTrackRequest = spotifyApi.getTrack(trackid)
-                    .build();
-            final Track track = getTrackRequest.execute();
-            searchQuery = track.getName();
-            ArtistSimplified[] artists = track.getArtists();
-            for (int i = 0;i< artists.length;i++){
-                searchQuery = searchQuery +  " "+artists[i].getName();
-            }
-            System.out.println(searchQuery);
-        } catch (Exception e) {
-            System.out.println("Error: " + e.getMessage());
+            try {
+                GetTrackRequest getTrackRequest = spotifyApi.getTrack(trackid)
+                        .build();
+                final Track track = getTrackRequest.execute();
+                searchQuery = track.getName();
+                ArtistSimplified[] artists = track.getArtists();
+                for (int i = 0; i < artists.length; i++) {
+                    searchQuery = searchQuery + " " + artists[i].getName();
+                }
+                System.out.println(searchQuery);
+            } catch (Exception e) {
+                System.out.println("Error with getting name: " + e.getMessage() +"Retrying...");
+                return null;
+
         }
         return searchQuery;
 
@@ -86,6 +84,7 @@ public class SpotifyAPI {
     }
     public static String readSetting(String parameter){
         Object obj = null;
+
         try {
             obj = new JSONParser().parse(new FileReader("settings//config.json"));
         } catch (Exception e) {

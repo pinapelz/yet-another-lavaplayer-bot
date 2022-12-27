@@ -8,9 +8,13 @@ import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
+import commands.CommandManager;
 import commands.UIPusher;
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.MessageBuilder;
+import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.TextChannel;
 import net.dv8tion.jda.api.entities.VoiceChannel;
@@ -24,10 +28,8 @@ import net.dv8tion.jda.api.interactions.components.selections.SelectionMenu;
 import net.dv8tion.jda.api.managers.AudioManager;
 import org.jetbrains.annotations.NotNull;
 import se.michaelthelin.spotify.model_objects.specification.PlaylistTrack;
-import utility.EmbedMaker;
-import utility.SpotifyAPI;
-import utility.URLChecker;
-import utility.YouTubeAPI;
+import utility.*;
+import javax.security.auth.login.LoginException;
 import java.awt.*;
 import java.io.*;
 import java.net.MalformedURLException;
@@ -38,21 +40,39 @@ import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+
 public class Music extends ListenerAdapter {
-    ArrayList<String> currentlyLoadedPlaylist = new ArrayList<>();
-    String ytapiKey;
+    public static JDA jda;
+    public static JDABuilder jdabuilder;
+    private ArrayList<String> currentlyLoadedPlaylist = new ArrayList<>();
+    private String ytapiKey;
     static String append = "$";
     private final URLChecker urlCheck = new URLChecker();
-    UIPusher uiPusher = new UIPusher();
+    private StatusHandler statusHandler;
+    private UIPusher uiPusher = new UIPusher();
     private final AudioPlayerManager playerManager;
     private final Map<Long, GuildMusicManager> musicManagers;
     private final SpotifyAPI spotifyAPI = new SpotifyAPI();
     private final EmbedMaker embedMaker = new EmbedMaker();
-    public Music(String append, String ytapiKey) {
+
+    public Music(String append, String ytapiKey, String discordToken) {
         this.musicManagers = new HashMap<>();
         this.ytapiKey = ytapiKey;
         Music.append = append;
         this.playerManager = new DefaultAudioPlayerManager();
+        jdabuilder = JDABuilder.createDefault(discordToken);
+        try {
+            jdabuilder.addEventListeners(this);
+            jdabuilder.addEventListeners(new CommandManager(this));
+            jda = jdabuilder.build();
+            statusHandler = new StatusHandler(jda);
+            statusHandler.setSlashCommands();
+            System.out.println("Bot Started");
+        } catch (LoginException e) {
+            throw new RuntimeException(e);
+        }
+
+        //Registering audio sources
         AudioSourceManagers.registerRemoteSources(playerManager);
         AudioSourceManagers.registerLocalSource(playerManager);
     }
@@ -61,7 +81,7 @@ public class Music extends ListenerAdapter {
         GuildMusicManager musicManager = musicManagers.get(guildId);
 
         if (musicManager == null) {
-            musicManager = new GuildMusicManager(playerManager);
+            musicManager = new GuildMusicManager(playerManager,jda);
             musicManagers.put(guildId, musicManager);
         }
         guild.getAudioManager().setSendingHandler(musicManager.getSendHandler());
@@ -126,15 +146,6 @@ public class Music extends ListenerAdapter {
         if((append+"holoadd").equals(command[0])){
             event.getChannel().sendMessage("The url has been successfully added to the database").queue();
         }
-       /* else if("!dev".equals(command[0])){
-            try {
-                YouTubeAPI youTubeAPI = new YouTubeAPI(ytapiKey);
-              youTubeAPI.getAllURLPlaylist("PLQmVFdwvZgfXlb2RDXWV1NaPXgYPu786G");
-            }
-            catch (Exception e){
-
-            }
-        }*/
 
         super.onGuildMessageReceived(event);
     }
@@ -205,6 +216,7 @@ public class Music extends ListenerAdapter {
             String userQuery = event.getOption("term").getAsString();
             if (urlCheck.isURL(userQuery) && !urlCheck.getURLType(userQuery).equals("spotify")&&!urlCheck.getURLType(userQuery).equals("spotify-playlist")) { //The term is a URL
                 event.reply("Found Video: " + userQuery).queue();
+
                 loadAndPlay((TextChannel) event.getChannel(), userQuery, false);
             }
             else { //Run checks if its not a directly playable URL
@@ -415,31 +427,6 @@ public class Music extends ListenerAdapter {
             }
         }
 
-        else if(event.getValues().get(0).contains("inspect-queue")) { //THIS FEAUTURE IS NOT FINISHED
-            //TODO: FINISH THE INSPECT QUEUE FEATURE
-            Queue<AudioTrack> queue = getGuildAudioPlayer(event.getGuild()).scheduler.queue;
-            BlockingQueue<AudioTrack> newQueue =  new LinkedBlockingQueue<>();
-            String trackName = event.getValues().get(0).replaceAll("inspect-queue ", "");
-            synchronized (queue) {
-                if (queue.isEmpty())
-                {
-                    event.reply("The queue is currently empty!").queue();
-
-                }
-                else {
-                    for (AudioTrack track : queue) {
-                        if (!track.getInfo().title.equals(trackName)) {
-                            newQueue.add(track);
-                        }
-                        else{
-
-                        }
-                    }
-                    getGuildAudioPlayer(event.getGuild()).scheduler.queue = newQueue;
-                }
-
-            }
-        }
     }
     @Override
     public void onButtonClick(ButtonClickEvent event){
@@ -518,6 +505,7 @@ public class Music extends ListenerAdapter {
                 }
 
                 play(channel.getGuild(), musicManager, track);
+
             }
 
             @Override
@@ -529,7 +517,6 @@ public class Music extends ListenerAdapter {
 ;                if(returnMessage){
                     channel.sendMessage("Adding to queue " + firstTrack.getInfo().title + " (first track of playlist " + playlist.getName() + ")").queue();
                 }
-
 
                 play(channel.getGuild(), musicManager, firstTrack);
             }
@@ -555,14 +542,11 @@ public class Music extends ListenerAdapter {
     private void play(Guild guild, GuildMusicManager musicManager, AudioTrack track) {
         connectToFirstVoiceChannel(guild.getAudioManager());
         musicManager.scheduler.queue(track);
-        BlockingQueue<AudioTrack> s = musicManager.scheduler.queue;
-
     }
 
     public void skipTrack(SlashCommandEvent event) {
         GuildMusicManager musicManager = getGuildAudioPlayer(event.getGuild());
         musicManager.scheduler.nextTrack();
-
         event.reply("Skipped to next track.").queue();
     }
 
@@ -585,7 +569,6 @@ public class Music extends ListenerAdapter {
         else
             return String.format("%02d:%02d", minutes, seconds);
     }
-
 
 
 
