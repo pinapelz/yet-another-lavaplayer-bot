@@ -8,6 +8,7 @@ A JDA Discord Bot that uses Lavaplayer to play music in Discord Voice Channels
 - Remove songs using a drop-down list
 - Discord button for various controls
 - Matches relevant YouTube videos from Spotify URLs
+- Play randomly selected music from a list of URLs
 
 ## Screenshots
 ### Queue using search terms
