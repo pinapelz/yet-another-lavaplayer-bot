@@ -8,13 +8,13 @@ import java.util.Objects;
 
 public class CommandManager extends ListenerAdapter {
     Music music;
-    String vTuberSongDatabase = "https://pinapelz.github.io/vTuberDiscordBot/hololiveMusic.txt";
+    String songDatabase = "https://pinapelz.github.io/vTuberDiscordBot/forsen.txt";
     public CommandManager(Music music){
         this.music = music;
     }
     @Override
     public void onSlashCommand(SlashCommandEvent event) {
-        String command = event.getName(); //test
+        String command = event.getName();
         switch (command) {
             case "play":
                 music.playMusic(event);
@@ -29,7 +29,7 @@ public class CommandManager extends ListenerAdapter {
                 break;
             case "vtmusic":
                 event.deferReply().queue();
-                music.queueTrackFromLoadedList(event, Integer.parseInt(Objects.requireNonNull(event.getOption("number")).getAsString()), "VTubermusic.txt",vTuberSongDatabase);
+                music.queueTrackFromLoadedList(event, Integer.parseInt(Objects.requireNonNull(event.getOption("number")).getAsString()), songDatabase);
                 event.getHook().sendMessage("Queued up " + Integer.parseInt(Objects.requireNonNull(event.getOption("number")).getAsString()) + " songs!").queue();
                 break;
             case "showqueue":

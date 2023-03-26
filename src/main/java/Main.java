@@ -3,13 +3,10 @@ import net.dv8tion.jda.api.events.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
-import utility.StatusHandler;
 import java.io.FileReader;
 
 
 public class Main extends ListenerAdapter {
-    public static StatusHandler statusHandler;
-
 
 
     public static void main( String[] args)

@@ -52,13 +52,9 @@ public class TrackScheduler extends AudioEventAdapter {
     public void nextTrack() {
         player.startTrack(queue.poll(), false);
         jda.getPresence().setActivity(Activity.playing(player.getPlayingTrack().getInfo().title));
-
-
     }
-    //TODO: FIGURE OUT HOW TO CHANGE THE STATUS AT THIS PART
     @Override
     public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
-        // Only start the next track if the end reason is suitable for it (FINISHED or LOAD_FAILED)
         jda.getPresence().setActivity(null);
         if (endReason.mayStartNext) {
             jda.getPresence().setActivity(Activity.playing(track.getInfo().title));

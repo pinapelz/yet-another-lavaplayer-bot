@@ -14,7 +14,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.MessageBuilder;
-import net.dv8tion.jda.api.entities.Activity;
+
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.TextChannel;
 import net.dv8tion.jda.api.entities.VoiceChannel;
@@ -26,8 +26,6 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.components.selections.SelectOption;
 import net.dv8tion.jda.api.interactions.components.selections.SelectionMenu;
 import net.dv8tion.jda.api.managers.AudioManager;
-import org.jetbrains.annotations.NotNull;
-import se.michaelthelin.spotify.model_objects.specification.PlaylistTrack;
 import utility.*;
 import javax.security.auth.login.LoginException;
 import java.awt.*;
@@ -39,6 +37,7 @@ import java.util.Queue;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+
 
 
 public class Music extends ListenerAdapter {
@@ -94,7 +93,7 @@ public class Music extends ListenerAdapter {
             URL url = new URL(link);
             BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
             String line;
-            File f = new File(fileName);
+            File f = new File("data//"+fileName);
             if(!f.exists()){ //if file doesn't exist, create it
                 f.createNewFile();
             }else{//if file exists, delete it
@@ -122,7 +121,7 @@ public class Music extends ListenerAdapter {
         try {
             s = new Scanner(new File("data//"+fileName));
         } catch (FileNotFoundException e) {
-            e.printStackTrace();
+            System.out.println("File Creation was unsuccessful. Can't access local playlist");
         }
         while (true){
             assert s != null;
@@ -131,8 +130,8 @@ public class Music extends ListenerAdapter {
         }
         s.close();
     }
-    public void queueTrackFromLoadedList(SlashCommandEvent event, int songsToQueue,String fileName,String url){
-        fillLoadedPlaylist(url,fileName);
+    public void queueTrackFromLoadedList(SlashCommandEvent event, int songsToQueue,String url){
+        fillLoadedPlaylist(url,"songdb.txt");
         Collections.shuffle(currentlyLoadedPlaylist);
         for (int i = 0;i<songsToQueue;i++){
             loadAndPlay((TextChannel) event.getChannel(), currentlyLoadedPlaylist.get(i),false);
@@ -141,14 +140,14 @@ public class Music extends ListenerAdapter {
 
     @Override
     public void onGuildMessageReceived(GuildMessageReceivedEvent event) {
-        String[] command = event.getMessage().getContentRaw().split(" ", 2);
-
-        if((append+"holoadd").equals(command[0])){
-            event.getChannel().sendMessage("The url has been successfully added to the database").queue();
-        }
-
+        String msg = event.getMessage().getContentRaw();
+        //TODO: Add voice recognition for commands?
         super.onGuildMessageReceived(event);
     }
+
+
+
+
     public void showQueueMenu(SlashCommandEvent event, String param, String instruction){
         Guild guild = event.getGuild();
         GuildMusicManager mng = getGuildAudioPlayer(guild);
@@ -246,24 +245,6 @@ public class Music extends ListenerAdapter {
         }
         catch(Exception e){
             event.reply("Error! Hazukashii! " + e);
-        }
-    }
-
-    //TODO: Finish the feature of showing spotify menu
-    public void showSpotifyMenu(String playlistID, SlashCommandEvent event){
-        PlaylistTrack[] tracks = spotifyAPI.getPlaylist_Sync(playlistID);
-        ArrayList<PlaylistTrack[]> trackPages = new ArrayList<PlaylistTrack[]>();
-        int chunk = 25; // chunk size to divide
-        for(int i=0;i<tracks.length;i+=chunk){
-            System.out.println(Arrays.toString(Arrays.copyOfRange(tracks, i, Math.min(tracks.length,i+chunk))));
-            trackPages.add(Arrays.copyOfRange(tracks, i, Math.min(tracks.length,i+chunk)));
-        }
-        for(int i = 0;i < trackPages.size();i++){
-            for(int j = 0; j < trackPages.get(i).length; j++){
-             //   SelectOption option = SelectOption.of(trackPages.get(i)[j].getTrack().getName(),param+" "+track.getInfo().title);
-                //trackMenuOptions.add(option);
-
-            }
         }
     }
 
@@ -494,7 +475,7 @@ public class Music extends ListenerAdapter {
 
 
     }
-    public void loadAndPlay(final @NotNull TextChannel channel, final String trackUrl, boolean returnMessage) {
+    public void loadAndPlay(final TextChannel channel, final String trackUrl, boolean returnMessage) {
         GuildMusicManager musicManager = getGuildAudioPlayer(channel.getGuild());
         playerManager.loadItemOrdered(musicManager, trackUrl, new AudioLoadResultHandler() {
             @Override
@@ -531,6 +512,7 @@ public class Music extends ListenerAdapter {
                 if(returnMessage) {
                     channel.sendMessage("Could not play: " + exception.getMessage()).queue();
                     System.out.println(exception);
+                    exception.printStackTrace();
                 }
             }
         });
@@ -551,6 +533,7 @@ public class Music extends ListenerAdapter {
     }
 
     private static void connectToFirstVoiceChannel(AudioManager audioManager) {
+        System.out.println("Connecting to voice channel");
         if (!audioManager.isConnected() && !audioManager.isAttemptingToConnect()) {
             for (VoiceChannel voiceChannel : audioManager.getGuild().getVoiceChannels()) {
                 audioManager.openAudioConnection(voiceChannel);
