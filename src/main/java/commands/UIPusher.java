@@ -1,22 +1,14 @@
 package commands;
 
-import audio.GuildMusicManager;
-import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
-import net.dv8tion.jda.api.entities.Emoji;
-import net.dv8tion.jda.api.entities.TextChannel;
-import net.dv8tion.jda.api.events.interaction.SlashCommandEvent;
-import net.dv8tion.jda.api.interactions.components.Button;
-import net.dv8tion.jda.api.interactions.components.selections.SelectOption;
-import net.dv8tion.jda.api.interactions.components.selections.SelectionMenu;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Queue;
+import net.dv8tion.jda.api.entities.emoji.Emoji;
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.interactions.components.buttons.Button;
+
 
 public class UIPusher {
 
-    public void showControls(SlashCommandEvent event){
+    public void showControls(SlashCommandInteractionEvent event){
         event.reply("Controls for the player:")
                 .addActionRow(
                         Button.primary("action-volumedown", Emoji.fromUnicode("U+1F509")),

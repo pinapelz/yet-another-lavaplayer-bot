@@ -13,19 +13,22 @@ import commands.UIPusher;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
-import net.dv8tion.jda.api.MessageBuilder;
+
 
 import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.TextChannel;
-import net.dv8tion.jda.api.entities.VoiceChannel;
-import net.dv8tion.jda.api.events.interaction.ButtonClickEvent;
-import net.dv8tion.jda.api.events.interaction.SelectionMenuEvent;
-import net.dv8tion.jda.api.events.interaction.SlashCommandEvent;
-import net.dv8tion.jda.api.events.message.guild.GuildMessageReceivedEvent;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
+
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.components.selections.SelectOption;
-import net.dv8tion.jda.api.interactions.components.selections.SelectionMenu;
+
+import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.managers.AudioManager;
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import utility.*;
 import javax.security.auth.login.LoginException;
 import java.awt.*;
@@ -67,7 +70,7 @@ public class Music extends ListenerAdapter {
             statusHandler = new StatusHandler(jda);
             statusHandler.setSlashCommands();
             System.out.println("Bot Started");
-        } catch (LoginException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
@@ -130,7 +133,7 @@ public class Music extends ListenerAdapter {
         }
         s.close();
     }
-    public void queueTrackFromLoadedList(SlashCommandEvent event, int songsToQueue,String url){
+    public void queueTrackFromLoadedList(SlashCommandInteractionEvent event, int songsToQueue, String url){
         fillLoadedPlaylist(url,"songdb.txt");
         Collections.shuffle(currentlyLoadedPlaylist);
         for (int i = 0;i<songsToQueue;i++){
@@ -139,16 +142,16 @@ public class Music extends ListenerAdapter {
     }
 
     @Override
-    public void onGuildMessageReceived(GuildMessageReceivedEvent event) {
+    public void onMessageReceived(MessageReceivedEvent event) {
         String msg = event.getMessage().getContentRaw();
         //TODO: Add voice recognition for commands?
-        super.onGuildMessageReceived(event);
+        super.onMessageReceived(event);
     }
 
 
 
 
-    public void showQueueMenu(SlashCommandEvent event, String param, String instruction){
+    public void showQueueMenu(SlashCommandInteractionEvent event, String param, String instruction){
         Guild guild = event.getGuild();
         GuildMusicManager mng = getGuildAudioPlayer(guild);
         Queue<AudioTrack> queue = getGuildAudioPlayer(event.getGuild()).scheduler.queue;
@@ -171,7 +174,7 @@ public class Music extends ListenerAdapter {
                         trackCount++;
                     }
                 }
-                SelectionMenu menu = SelectionMenu.create("menu:class")
+                StringSelectMenu menu = StringSelectMenu.create("menu:class")
                         .setPlaceholder("-Select a track-") // shows the placeholder indicating what this menu is for
                         .setRequiredRange(1,1)// only one can be selected
                         .addOptions(trackMenuOptions)
@@ -184,10 +187,10 @@ public class Music extends ListenerAdapter {
             }
         }
     }
-    public void showControls(SlashCommandEvent event){
+    public void showControls(SlashCommandInteractionEvent event){
         uiPusher.showControls(event);
     }
-    public void shuffleQueue(SlashCommandEvent event){
+    public void shuffleQueue(SlashCommandInteractionEvent event){
         Guild guild = event.getGuild();
         GuildMusicManager mng = getGuildAudioPlayer(guild);
         Queue<AudioTrack> queue = getGuildAudioPlayer(event.getGuild()).scheduler.queue;
@@ -209,7 +212,7 @@ public class Music extends ListenerAdapter {
         event.reply("The queue has been shuffled!").queue();
     }
 
-    public void playMusic(SlashCommandEvent event){
+    public void playMusic(SlashCommandInteractionEvent event){
        final YouTubeAPI youtubeAPI = new YouTubeAPI(ytapiKey);
         try {
             String userQuery = event.getOption("term").getAsString();
@@ -248,7 +251,7 @@ public class Music extends ListenerAdapter {
         }
     }
 
-    public void setVolume(SlashCommandEvent event, String command){
+    public void setVolume(SlashCommandInteractionEvent event, String command){
         Guild guild = event.getGuild();
         assert guild != null;
         GuildMusicManager mng = getGuildAudioPlayer(guild);
@@ -273,7 +276,7 @@ public class Music extends ListenerAdapter {
         }
     }
 
-    public void stopPlayer(SlashCommandEvent event){
+    public void stopPlayer(SlashCommandInteractionEvent event){
         Guild guild = event.getGuild();
         GuildMusicManager mng = getGuildAudioPlayer(guild);
         AudioPlayer player = mng.player;
@@ -284,7 +287,7 @@ public class Music extends ListenerAdapter {
         event.reply("Playback has been completely stopped and the queue has been cleared.").queue();
     }
 
-    public void pausePlayer(SlashCommandEvent event){
+    public void pausePlayer(SlashCommandInteractionEvent event){
         Guild guild = event.getGuild();
         GuildMusicManager mng = getGuildAudioPlayer(guild);
         AudioPlayer player = mng.player;
@@ -300,7 +303,7 @@ public class Music extends ListenerAdapter {
             event.reply("The player has resumed playing.").queue();
     }
 
-    public void showNowPlaying(SlashCommandEvent event){
+    public void showNowPlaying(SlashCommandInteractionEvent event){
         Guild guild = event.getGuild();
         GuildMusicManager mng = getGuildAudioPlayer(guild);
         AudioPlayer player = mng.player;
@@ -316,14 +319,14 @@ public class Music extends ListenerAdapter {
                 EmbedBuilder embed = embedMaker.makeNowPlayingEmbed(currentTrack,position,duration,
                         "https://img.youtube.com/vi/" + currentTrack.getIdentifier() + "/hqdefault.jpg",
                         "https://www.youtube.com/watch?v=" + currentTrack.getIdentifier(),new Color(0xFD0001));
-                MessageBuilder messageBuilder = (MessageBuilder) new MessageBuilder().setEmbeds(embed.build());
+                MessageCreateBuilder messageBuilder = new MessageCreateBuilder().setEmbeds(embed.build());
                 event.reply(messageBuilder.build()).queue();
             }
             else if(currentTrackUrlType=="snd") { //SOUNDCLOUD EMBED
                 EmbedBuilder embed = embedMaker.makeNowPlayingEmbed(currentTrack,position,duration,
                         "https://1000logos.net/wp-content/uploads/2021/04/Soundcloud-logo.png",
                         currentTrack.getInfo().uri,new Color(0xFD5401));
-                MessageBuilder messageBuilder = (MessageBuilder) new MessageBuilder().setEmbeds(embed.build());
+                MessageCreateBuilder messageBuilder = new MessageCreateBuilder().setEmbeds(embed.build());
 
                 event.reply(messageBuilder.build()).queue();
             }
@@ -333,7 +336,7 @@ public class Music extends ListenerAdapter {
                                 currentTrack.getIdentifier().replaceAll("https://www.twitch.tv/","") + "-440x248.jpg",
                         currentTrack.getIdentifier(),
                         new Color(0xA86FFE));
-                MessageBuilder messageBuilder = (MessageBuilder) new MessageBuilder().setEmbeds(embed.build());
+                MessageCreateBuilder messageBuilder = new MessageCreateBuilder().setEmbeds(embed.build());
                 event.reply(messageBuilder.build()).queue();
             }
         }
@@ -342,7 +345,7 @@ public class Music extends ListenerAdapter {
         }
     }
 
-    public void showQueue(SlashCommandEvent event){
+    public void showQueue(SlashCommandInteractionEvent event){
         Queue<AudioTrack> queue = getGuildAudioPlayer(event.getGuild()).scheduler.queue;
         synchronized (queue)
         {
@@ -375,7 +378,7 @@ public class Music extends ListenerAdapter {
 
 
     @Override
-    public void onSelectionMenu(SelectionMenuEvent event){
+    public void onStringSelectInteraction(StringSelectInteractionEvent event){
         if(event.getValues().get(0).contains("remove-queue")) {
             boolean deletedSong = false;
             Queue<AudioTrack> queue = getGuildAudioPlayer(event.getGuild()).scheduler.queue;
@@ -410,7 +413,7 @@ public class Music extends ListenerAdapter {
 
     }
     @Override
-    public void onButtonClick(ButtonClickEvent event){
+    public void onButtonInteraction(ButtonInteractionEvent event){
         Guild guild = event.getGuild();
         GuildMusicManager mng = getGuildAudioPlayer(guild);
         AudioPlayer player = mng.player;
@@ -455,7 +458,7 @@ public class Music extends ListenerAdapter {
 
 
     }
-    public void recursiveQueue(SlashCommandEvent event, String playlistUrl,int amount){
+    public void recursiveQueue(SlashCommandInteractionEvent event, String playlistUrl,int amount){
         final YouTubeAPI youtubeAPI = new YouTubeAPI(ytapiKey);
         System.out.println(urlCheck.getURLType(playlistUrl));
         if(urlCheck.isURL(playlistUrl) && urlCheck.getURLType(playlistUrl).equals("spotify-playlist")){
@@ -524,9 +527,10 @@ public class Music extends ListenerAdapter {
     private void play(Guild guild, GuildMusicManager musicManager, AudioTrack track) {
         connectToFirstVoiceChannel(guild.getAudioManager());
         musicManager.scheduler.queue(track);
+        System.out.println("Playing " + track.getInfo().title);
     }
 
-    public void skipTrack(SlashCommandEvent event) {
+    public void skipTrack(SlashCommandInteractionEvent event) {
         GuildMusicManager musicManager = getGuildAudioPlayer(event.getGuild());
         musicManager.scheduler.nextTrack();
         event.reply("Skipped to next track.").queue();
@@ -534,8 +538,10 @@ public class Music extends ListenerAdapter {
 
     private static void connectToFirstVoiceChannel(AudioManager audioManager) {
         System.out.println("Connecting to voice channel");
-        if (!audioManager.isConnected() && !audioManager.isAttemptingToConnect()) {
+        if (!audioManager.isConnected()) {
+
             for (VoiceChannel voiceChannel : audioManager.getGuild().getVoiceChannels()) {
+                System.out.println("Attempting to connect to " + voiceChannel.getName());
                 audioManager.openAudioConnection(voiceChannel);
                 break;
             }

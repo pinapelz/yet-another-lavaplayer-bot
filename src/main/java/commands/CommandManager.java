@@ -1,19 +1,20 @@
 package commands;
 
 import audio.Music;
-import net.dv8tion.jda.api.events.interaction.SlashCommandEvent;
+
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
 import java.util.Objects;
 
 public class CommandManager extends ListenerAdapter {
     Music music;
-    String songDatabase = "https://pinapelz.github.io/vTuberDiscordBot/forsen.txt";
+    String songDatabase = "YOUR_LIST_OF_YOUTUBE_LINKS_OR_AUDIO_URLS_HERE";
     public CommandManager(Music music){
         this.music = music;
     }
     @Override
-    public void onSlashCommand(SlashCommandEvent event) {
+    public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
         String command = event.getName();
         switch (command) {
             case "play":
@@ -70,7 +71,7 @@ public class CommandManager extends ListenerAdapter {
                 music.showQueueMenu(event, "inspect-queue", "Select a track to inspect below");
                 break;
         }
-        super.onSlashCommand(event);
+        super.onSlashCommandInteraction(event);
     }
 
 }
