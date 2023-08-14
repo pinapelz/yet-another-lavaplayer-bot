@@ -34,16 +34,10 @@ public class TrackScheduler extends AudioEventAdapter {
      * @param track The track to play or add to queue.
      */
     public void queue(AudioTrack track) {
-        //!player.startTrack(track, true)
-        if (player.getPlayingTrack()!= null) {
+        if (!player.startTrack(track, true)) {
             queue.offer(track);
             jda.getPresence().setActivity(Activity.playing(player.getPlayingTrack().getInfo().title));
         }
-        else{
-            player.startTrack(track, true);
-            jda.getPresence().setActivity(Activity.playing(player.getPlayingTrack().getInfo().title));
-        }
-
     }
 
     /**
@@ -56,6 +50,7 @@ public class TrackScheduler extends AudioEventAdapter {
     @Override
     public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
         jda.getPresence().setActivity(null);
+        System.out.println("Track ended because " + endReason.toString());
         if (endReason.mayStartNext) {
             jda.getPresence().setActivity(Activity.playing(track.getInfo().title));
             nextTrack();

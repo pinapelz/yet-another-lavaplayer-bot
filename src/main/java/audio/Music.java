@@ -28,6 +28,7 @@ import net.dv8tion.jda.api.interactions.components.selections.SelectOption;
 
 import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.managers.AudioManager;
+import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import utility.*;
 import javax.security.auth.login.LoginException;
@@ -64,6 +65,7 @@ public class Music extends ListenerAdapter {
         this.playerManager = new DefaultAudioPlayerManager();
         jdabuilder = JDABuilder.createDefault(discordToken);
         try {
+            jdabuilder.enableIntents(GatewayIntent.MESSAGE_CONTENT);
             jdabuilder.addEventListeners(this);
             jdabuilder.addEventListeners(new CommandManager(this));
             jda = jdabuilder.build();
