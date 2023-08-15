@@ -33,6 +33,11 @@
 
   <dependencies>
     <dependency>
+      <groupId>dev.arbjerg</groupId>
+      <artifactId>lavaplayer</artifactId>
+      <version>2.0.1</version>
+    </dependency>
+    <dependency>
       <groupId>net.dv8tion</groupId>
       <artifactId>JDA</artifactId>
       <version>5.0.0-beta.13</version>
@@ -41,11 +46,6 @@
       <groupId>org.jsoup</groupId>
       <artifactId>jsoup</artifactId>
       <version>1.15.4</version>
-    </dependency>
-    <dependency>
-      <groupId>com.github.walkyst</groupId>
-      <artifactId>lavaplayer-fork</artifactId>
-      <version>1.4.1</version>
     </dependency>
     <dependency>
       <groupId>com.googlecode.json-simple</groupId>

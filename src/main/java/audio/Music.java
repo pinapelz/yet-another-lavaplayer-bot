@@ -239,8 +239,9 @@ public class Music extends ListenerAdapter {
                         loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(spotifyAPI.getSearchTerm_sync(randomSong)), true);
                     }
                     else {
-                        event.reply("Found Video: " + youtubeAPI.returnTopVideoURL(userQuery)).queue();
-                        loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(userQuery), true);
+                        String top_video = youtubeAPI.returnTopVideoURL(userQuery);
+                        event.reply("Found Video: " + top_video).queue();
+                        loadAndPlay((TextChannel) event.getChannel(), top_video, true);
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
