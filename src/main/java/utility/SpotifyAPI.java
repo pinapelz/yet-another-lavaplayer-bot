@@ -1,6 +1,4 @@
 package utility;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
 import se.michaelthelin.spotify.SpotifyApi;
 import se.michaelthelin.spotify.model_objects.credentials.ClientCredentials;
 import se.michaelthelin.spotify.model_objects.specification.ArtistSimplified;
@@ -10,12 +8,10 @@ import se.michaelthelin.spotify.model_objects.specification.Track;
 import se.michaelthelin.spotify.requests.authorization.client_credentials.ClientCredentialsRequest;
 import se.michaelthelin.spotify.requests.data.playlists.GetPlaylistRequest;
 import se.michaelthelin.spotify.requests.data.tracks.GetTrackRequest;
-import java.io.FileReader;
 import java.time.Instant;
 public class SpotifyAPI {
     private static final String clientId = readSetting("spotifyClientID");
     private static final String clientSecret = readSetting("spotifyClientSecret");
-    public static String spotifyapiKey = "";
     public static long lastRefresh = 0;
     private static final SpotifyApi spotifyApi = new SpotifyApi.Builder()
             .setClientId(clientId)
@@ -24,7 +20,6 @@ public class SpotifyAPI {
     private static final ClientCredentialsRequest clientCredentialsRequest = spotifyApi.clientCredentials()
             .build();
     public SpotifyAPI(){
-        this.spotifyapiKey = readSetting("spotifyApi");
     }
     public static String getSearchTerm_sync(String trackid) {
         checkRefreshToken();
