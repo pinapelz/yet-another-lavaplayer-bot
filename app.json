@@ -1,0 +1,24 @@
+{
+  "name": "Yet Another Lavaplayer Bot",
+  "description": "A simple music player Discord bot with additional support for YouTube, Spotify, and more",
+  "repository": "https://github.com/pinapelz/yet-another-lavaplayer-bot",
+  "keywords": ["jda", "java", "discord"],
+  "env": {
+    "DISCORDTOKEN": {
+      "description": "Your Discord bot token",
+      "generator": "secret"
+    },
+    "YOUTUBEAPIKEY": {
+      "description": "Youtube Data API V3 Key",
+      "value": "secret"
+    },
+    "spotifyClientID": {
+      "description": "Spotify API Client ID (optional)",
+      "value": "secret"
+    },
+    "spotifyClientSecret": {
+      "description": "Spotify API Client Secret (optional)",
+      "value": "secret"
+    }
+  }
+}
