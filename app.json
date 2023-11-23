@@ -6,7 +6,7 @@
   "env": {
     "DISCORDTOKEN": {
       "description": "Your Discord bot token",
-      "generator": "secret"
+      "value": "secret"
     },
     "YOUTUBEAPIKEY": {
       "description": "Youtube Data API V3 Key",
@@ -14,11 +14,13 @@
     },
     "spotifyClientID": {
       "description": "Spotify API Client ID (optional)",
-      "value": "secret"
+      "value": "secret",
+      "required": false
     },
     "spotifyClientSecret": {
       "description": "Spotify API Client Secret (optional)",
-      "value": "secret"
+      "value": "secret",
+      "required": false
     }
   }
 }
