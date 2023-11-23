@@ -83,15 +83,11 @@ public class SpotifyAPI {
         }
     }
     public static String readSetting(String parameter){
-        Object obj = null;
-
-        try {
-            obj = new JSONParser().parse(new FileReader("settings//config.json"));
-        } catch (Exception e) {
-            e.printStackTrace();
+        String value = System.getenv(parameter);
+        if (value != null) {
+            return value;
         }
-        JSONObject jo = (JSONObject) obj;
-        return (String) jo.get(parameter);
+        throw new RuntimeException("Environment variable " + parameter + " not found");
     }
     public static  void checkRefreshToken(){
         long unixTime = Instant.now().getEpochSecond();
