@@ -1,1 +1,1 @@
-worker: java $JAVA_OPTS -cp target/classes:target/dependency/* src/main/java/Main.java
+worker: java $JAVA_OPTS -jar target/DiscordBot-1.0-SNAPSHOT-shaded.jar $JAR_OPTS
