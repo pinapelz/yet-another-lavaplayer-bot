@@ -268,8 +268,12 @@ public class Music extends ListenerAdapter {
                         event.getHook().sendMessage("Text Playlist Detected! Queueing " + urls.length + " songs").queue();
                     }
                     for (String url : urls) {
-                        loadAndPlay((TextChannel) event.getChannel(), url, false);
+                        loadAndPlay((TextChannel) event.getChannel(), url, true);
                     }
+                    break;
+                case "search-term":
+                    event.reply("Searching for: " + userQuery).queue();
+                    loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(userQuery), false);
                     break;
                 default:
                     System.out.println(urlCheck.getURLType(userQuery) + "  was not handled");

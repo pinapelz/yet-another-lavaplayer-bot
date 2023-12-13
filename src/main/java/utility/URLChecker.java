@@ -5,6 +5,9 @@ public class URLChecker {
         return term.matches("^(http|https)://.*");
     }
     public String getURLType(String url) {
+        if(!url.matches("^(https?|ftp|file)://[-A-Za-z0-9+&@#/%?=~_|!:,.;]*[-A-Za-z0-9+&@#/%=~_|]\n")){
+            return "search-term";
+        }
         if(url.matches("^((?:https?:)?\\/\\/)?((?:www|m)\\.)?youtube\\.com\\/playlist\\?list=([\\w\\-]+)$")){
             System.out.println("yt-playlist");
             return "yt-playlist";
