@@ -186,14 +186,11 @@ public class Music extends ListenerAdapter {
             return;
         }
         else{
-
-            ArrayList<Object> currentQueue = new ArrayList<>(queue); //Conversion of queue to arraylist to allow for shuffling
-            Collections.shuffle(currentQueue);
-            BlockingQueue<AudioTrack> newQueue =  new LinkedBlockingQueue<>();
-            for (Object track : currentQueue) {
-                newQueue.add((AudioTrack) track);
+            synchronized (queue) {
+                ArrayList<AudioTrack> currentQueue = new ArrayList<>(queue); //Conversion of queue to AudioTrack arraylist to allow for shuffling
+                Collections.shuffle(currentQueue);
+                mng.scheduler.queue = new LinkedBlockingQueue<>(currentQueue);
             }
-            mng.scheduler.queue = newQueue;
         }
         event.reply("The queue has been shuffled!").queue();
     }
