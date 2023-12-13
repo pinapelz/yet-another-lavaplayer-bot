@@ -30,6 +30,7 @@ import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.managers.AudioManager;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
+import se.michaelthelin.spotify.model_objects.specification.PlaylistTrack;
 import utility.*;
 import javax.security.auth.login.LoginException;
 import java.awt.*;
@@ -57,6 +58,9 @@ public class Music extends ListenerAdapter {
     private final Map<Long, GuildMusicManager> musicManagers;
     private final SpotifyAPI spotifyAPI = new SpotifyAPI();
     private final EmbedMaker embedMaker = new EmbedMaker();
+
+    private final int MAX_SP_PLAYLIST_SIZE = 40; // Maximum Spotify playlist size to queue. This is to prevent spamming the queue with too many songs
+    // Bot owners should make adjustments to this value depending on their needs
 
     public Music(String append, String ytapiKey, String discordToken) {
         this.musicManagers = new HashMap<>();
@@ -217,26 +221,40 @@ public class Music extends ListenerAdapter {
     public void playMusic(SlashCommandInteractionEvent event){
        final YouTubeAPI youtubeAPI = new YouTubeAPI(ytapiKey);
         try {
-            String userQuery = event.getOption("term").getAsString();
+            String userQuery = Objects.requireNonNull(event.getOption("term")).getAsString();
             if (urlCheck.isURL(userQuery) && !urlCheck.getURLType(userQuery).equals("spotify")&&!urlCheck.getURLType(userQuery).equals("spotify-playlist")) { //The term is a URL
                 event.reply("Found Video: " + userQuery).queue();
 
                 loadAndPlay((TextChannel) event.getChannel(), userQuery, false);
             }
-            else { //Run checks if its not a directly playable URL
+            else {
                 try {
                     if (urlCheck.getURLType(userQuery).equals("spotify")){
 
                         event.deferReply().queue();
-                        event.getHook().sendMessage("Matched Video From Spotify: " + youtubeAPI.returnTopVideoURL(spotifyAPI.getSearchTerm_sync(urlCheck.getSpotifyTrackID(userQuery)))).queue();
-                        loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(spotifyAPI.getSearchTerm_sync(urlCheck.getSpotifyTrackID(userQuery))), true);
+                        event.getHook().sendMessage("Matched Video From Spotify: " + youtubeAPI.returnTopVideoURL(SpotifyAPI.getSearchTerm_sync(urlCheck.getSpotifyTrackID(userQuery)))).queue();
+                        loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(SpotifyAPI.getSearchTerm_sync(urlCheck.getSpotifyTrackID(userQuery))), true);
                     }
                     else if(urlCheck.getURLType(userQuery).equals("spotify-playlist")){
                         event.deferReply().queue();
                         //TODO: Add playlist support using selection menu
-                        String randomSong = spotifyAPI.getRandomPlaylistTrack_Sync(urlCheck.getSpotifyPlaylistID(userQuery));
-                        event.getHook().sendMessage("Matched Video From Spotify Playlist: " + youtubeAPI.returnTopVideoURL(spotifyAPI.getSearchTerm_sync(randomSong))).queue();
-                        loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(spotifyAPI.getSearchTerm_sync(randomSong)), true);
+                        PlaylistTrack[] playlist = SpotifyAPI.getPlaylist_Sync(urlCheck.getSpotifyPlaylistID(userQuery));
+                        if (playlist == null){
+                            event.getHook().sendMessage("Error: Could not find playlist").queue();
+                            return;
+                        }
+                        else if(playlist.length>MAX_SP_PLAYLIST_SIZE){
+                            PlaylistTrack[] slicedPlaylist = Arrays.copyOfRange(playlist, 0, MAX_SP_PLAYLIST_SIZE);
+                            event.getHook().sendMessage("Spotify Playlist Detected! But its too long, queueing the first " + MAX_SP_PLAYLIST_SIZE + " songs").queue();
+                            playlist = slicedPlaylist;
+                        }
+                        else{
+                            event.getHook().sendMessage("Spotify Playlist Detected! Queueing " + playlist.length + " songs").queue();
+                        }
+
+                        for (PlaylistTrack playlistTrack : playlist) {
+                            loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(SpotifyAPI.getSearchTerm_sync(playlistTrack.getTrack().getId())), false);
+                        }
                     }
                     else {
                         String top_video = youtubeAPI.returnTopVideoURL(userQuery);
@@ -245,6 +263,7 @@ public class Music extends ListenerAdapter {
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
+                    event.reply("An error has occured please check the Bot logs for more details").queue();
                 }
             }
 
@@ -281,6 +300,7 @@ public class Music extends ListenerAdapter {
 
     public void stopPlayer(SlashCommandInteractionEvent event){
         Guild guild = event.getGuild();
+        if (guild == null) return;
         GuildMusicManager mng = getGuildAudioPlayer(guild);
         AudioPlayer player = mng.player;
         TrackScheduler scheduler = mng.scheduler;
@@ -292,6 +312,7 @@ public class Music extends ListenerAdapter {
 
     public void pausePlayer(SlashCommandInteractionEvent event){
         Guild guild = event.getGuild();
+        if (guild == null) return;
         GuildMusicManager mng = getGuildAudioPlayer(guild);
         AudioPlayer player = mng.player;
         if (player.getPlayingTrack() == null)
@@ -308,6 +329,7 @@ public class Music extends ListenerAdapter {
 
     public void showNowPlaying(SlashCommandInteractionEvent event){
         Guild guild = event.getGuild();
+        if (guild == null) return;
         GuildMusicManager mng = getGuildAudioPlayer(guild);
         AudioPlayer player = mng.player;
         AudioTrack currentTrack = player.getPlayingTrack();
@@ -318,29 +340,34 @@ public class Music extends ListenerAdapter {
             System.out.println(currentTrack.getInfo().uri);
             String position = getTimestamp(currentTrack.getPosition());
             String duration = getTimestamp(currentTrack.getDuration());
-            if(currentTrackUrlType=="yt") { //YOUTUBE EMBED
-                EmbedBuilder embed = embedMaker.makeNowPlayingEmbed(currentTrack,position,duration,
-                        "https://img.youtube.com/vi/" + currentTrack.getIdentifier() + "/hqdefault.jpg",
-                        "https://www.youtube.com/watch?v=" + currentTrack.getIdentifier(),new Color(0xFD0001));
-                MessageCreateBuilder messageBuilder = new MessageCreateBuilder().setEmbeds(embed.build());
-                event.reply(messageBuilder.build()).queue();
-            }
-            else if(currentTrackUrlType=="snd") { //SOUNDCLOUD EMBED
-                EmbedBuilder embed = embedMaker.makeNowPlayingEmbed(currentTrack,position,duration,
-                        "https://1000logos.net/wp-content/uploads/2021/04/Soundcloud-logo.png",
-                        currentTrack.getInfo().uri,new Color(0xFD5401));
-                MessageCreateBuilder messageBuilder = new MessageCreateBuilder().setEmbeds(embed.build());
+            switch (currentTrackUrlType) {
+                case "yt": { //YOUTUBE EMBED
+                    EmbedBuilder embed = embedMaker.makeNowPlayingEmbed(currentTrack, position, duration,
+                            "https://img.youtube.com/vi/" + currentTrack.getIdentifier() + "/hqdefault.jpg",
+                            "https://www.youtube.com/watch?v=" + currentTrack.getIdentifier(), new Color(0xFD0001));
+                    MessageCreateBuilder messageBuilder = new MessageCreateBuilder().setEmbeds(embed.build());
+                    event.reply(messageBuilder.build()).queue();
+                    break;
+                }
+                case "snd": { //SOUNDCLOUD EMBED
+                    EmbedBuilder embed = embedMaker.makeNowPlayingEmbed(currentTrack, position, duration,
+                            "https://1000logos.net/wp-content/uploads/2021/04/Soundcloud-logo.png",
+                            currentTrack.getInfo().uri, new Color(0xFD5401));
+                    MessageCreateBuilder messageBuilder = new MessageCreateBuilder().setEmbeds(embed.build());
 
-                event.reply(messageBuilder.build()).queue();
-            }
-            else if(currentTrackUrlType=="twitch"){ //TWITCH EMBED
-                EmbedBuilder embed = embedMaker.makeNowPlayingEmbed(currentTrack,"Currently","Live",
-                        "https://static-cdn.jtvnw.net/previews-ttv/live_user_" +
-                                currentTrack.getIdentifier().replaceAll("https://www.twitch.tv/","") + "-440x248.jpg",
-                        currentTrack.getIdentifier(),
-                        new Color(0xA86FFE));
-                MessageCreateBuilder messageBuilder = new MessageCreateBuilder().setEmbeds(embed.build());
-                event.reply(messageBuilder.build()).queue();
+                    event.reply(messageBuilder.build()).queue();
+                    break;
+                }
+                case "twitch": { //TWITCH EMBED
+                    EmbedBuilder embed = embedMaker.makeNowPlayingEmbed(currentTrack, "Currently", "Live",
+                            "https://static-cdn.jtvnw.net/previews-ttv/live_user_" +
+                                    currentTrack.getIdentifier().replaceAll("https://www.twitch.tv/", "") + "-440x248.jpg",
+                            currentTrack.getIdentifier(),
+                            new Color(0xA86FFE));
+                    MessageCreateBuilder messageBuilder = new MessageCreateBuilder().setEmbeds(embed.build());
+                    event.reply(messageBuilder.build()).queue();
+                    break;
+                }
             }
         }
         else {
@@ -349,7 +376,7 @@ public class Music extends ListenerAdapter {
     }
 
     public void showQueue(SlashCommandInteractionEvent event){
-        Queue<AudioTrack> queue = getGuildAudioPlayer(event.getGuild()).scheduler.queue;
+        Queue<AudioTrack> queue = getGuildAudioPlayer(Objects.requireNonNull(event.getGuild())).scheduler.queue;
         synchronized (queue)
         {
             if (queue.isEmpty())
@@ -367,12 +394,12 @@ public class Music extends ListenerAdapter {
                     queueLength += track.getDuration();
                     if (trackCount < 10)
                     {
-                        sb.append(trackCount+1 +". [").append(getTimestamp(track.getDuration())).append("] ");
+                        sb.append(trackCount + 1).append(". [").append(getTimestamp(track.getDuration())).append("] ");
                         sb.append(track.getInfo().title).append("\n");
                         trackCount++;
                     }
                 }
-                sb.append("\n").append("Total Queue Time Length: ").append(getTimestamp(queueLength)+"```");
+                sb.append("\n").append("Total Queue Time Length: ").append(getTimestamp(queueLength)).append("```");
                 event.reply(sb.toString()).queue();
 
             }
