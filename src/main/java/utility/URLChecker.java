@@ -19,7 +19,10 @@ public class URLChecker {
         } else if (url.split("\\?si=")[0].matches("^(https?://)?(www.)?(open.)?spotify.com/(user/[a-zA-Z0-9]+|artist/[a-zA-Z0-9]+|album/[a-zA-Z0-9]+|track/[a-zA-Z0-9]+|playlist/[a-zA-Z0-9]+)$")) {
             return url.split("\\?si=")[0].matches("^(https?://)?(www.)?(open.)?spotify.com/playlist/[a-zA-Z0-9]+$") ? "spotify-playlist" : "spotify";
         }
-            return "unknown";
+        else if(url.endsWith(".txt")){
+            return "txt-playlist";
+        }
+        return "unknown";
 
         }
 

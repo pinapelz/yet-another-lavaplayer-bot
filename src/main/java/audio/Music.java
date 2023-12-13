@@ -58,6 +58,7 @@ public class Music extends ListenerAdapter {
     private final Map<Long, GuildMusicManager> musicManagers;
     private final SpotifyAPI spotifyAPI = new SpotifyAPI();
     private final EmbedMaker embedMaker = new EmbedMaker();
+    private final WebAPI webAPI = new WebAPI();
 
     private final int MAX_SP_PLAYLIST_SIZE = 40; // Maximum Spotify playlist size to queue. This is to prevent spamming the queue with too many songs
     // Bot owners should make adjustments to this value depending on their needs
@@ -246,11 +247,34 @@ public class Music extends ListenerAdapter {
                         loadAndPlay((TextChannel) event.getChannel(), videoURL, false);
                     }
                     break;
+                case "snd":
+                    event.reply("Found Soundcloud Track: " + userQuery).queue();
+                    loadAndPlay((TextChannel) event.getChannel(), userQuery, false);
+                    break;
+                case "txt-playlist":
+                    event.deferReply().queue();
+                    String[] urls = webAPI.getURLsFromSite(userQuery);
+
+                    if(urls == null || urls.length == 0){
+                        event.getHook().sendMessage("Error: Could not find any URLs in the text file").queue();
+                        return;
+                    }
+                    else if(urls.length > MAX_SP_PLAYLIST_SIZE){
+                        String[] slicedPlaylist = Arrays.copyOfRange(urls, 0, MAX_SP_PLAYLIST_SIZE);
+                        event.getHook().sendMessage("Text Playlist Detected! But its too long, queueing the first " + MAX_SP_PLAYLIST_SIZE + " songs").queue();
+                        urls = slicedPlaylist;
+                    }
+                    else{
+                        event.getHook().sendMessage("Text Playlist Detected! Queueing " + urls.length + " songs").queue();
+                    }
+                    for (String url : urls) {
+                        loadAndPlay((TextChannel) event.getChannel(), url, false);
+                    }
+                    break;
                 default:
                     System.out.println(urlCheck.getURLType(userQuery) + "  was not handled");
-                    String top_video = youtubeAPI.returnTopVideoURL(userQuery);
-                    event.reply("Found Video: " + top_video).queue();
-                    loadAndPlay((TextChannel) event.getChannel(), top_video, true);
+                    event.reply("Trying to directly queue URL: " + userQuery).queue();
+                    loadAndPlay((TextChannel) event.getChannel(), userQuery, true);
                     break;
             }
         } catch (IOException e) {
