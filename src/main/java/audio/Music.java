@@ -124,29 +124,6 @@ public class Music extends ListenerAdapter {
             System.out.println("I/O Error: " + e.getMessage());
         }
     }
-    private void fillLoadedPlaylist(String url,String fileName){
-        populateFileFromURL(url,fileName);
-        Scanner s = null;
-        try {
-            s = new Scanner(new File("data//"+fileName));
-        } catch (FileNotFoundException e) {
-            System.out.println("File Creation was unsuccessful. Can't access local playlist");
-        }
-        while (true){
-            assert s != null;
-            if (!s.hasNext()) break;
-            currentlyLoadedPlaylist.add(s.nextLine());
-        }
-        s.close();
-    }
-    public void queueTrackFromLoadedList(SlashCommandInteractionEvent event, int songsToQueue, String url){
-        fillLoadedPlaylist(url,"songdb.txt");
-        Collections.shuffle(currentlyLoadedPlaylist);
-        for (int i = 0;i<songsToQueue;i++){
-            loadAndPlay((TextChannel) event.getChannel(), currentlyLoadedPlaylist.get(i),false);
-        }
-    }
-
     @Override
     public void onMessageReceived(MessageReceivedEvent event) {
         String msg = event.getMessage().getContentRaw();
@@ -159,6 +136,7 @@ public class Music extends ListenerAdapter {
 
     public void showQueueMenu(SlashCommandInteractionEvent event, String param, String instruction){
         Guild guild = event.getGuild();
+        if (guild == null) return;
         GuildMusicManager mng = getGuildAudioPlayer(guild);
         Queue<AudioTrack> queue = getGuildAudioPlayer(event.getGuild()).scheduler.queue;
         List<SelectOption> trackMenuOptions = new ArrayList<SelectOption>();
@@ -198,6 +176,7 @@ public class Music extends ListenerAdapter {
     }
     public void shuffleQueue(SlashCommandInteractionEvent event){
         Guild guild = event.getGuild();
+        if (guild == null) return;
         GuildMusicManager mng = getGuildAudioPlayer(guild);
         Queue<AudioTrack> queue = getGuildAudioPlayer(event.getGuild()).scheduler.queue;
         if (queue.isEmpty())
@@ -207,7 +186,7 @@ public class Music extends ListenerAdapter {
         }
         else{
 
-            ArrayList<Object> currentQueue = new ArrayList(queue); //Conversion of queue to arraylist to allow for shuffling
+            ArrayList<Object> currentQueue = new ArrayList<>(queue); //Conversion of queue to arraylist to allow for shuffling
             Collections.shuffle(currentQueue);
             BlockingQueue<AudioTrack> newQueue =  new LinkedBlockingQueue<>();
             for (Object track : currentQueue) {
@@ -219,57 +198,64 @@ public class Music extends ListenerAdapter {
     }
 
     public void playMusic(SlashCommandInteractionEvent event){
-       final YouTubeAPI youtubeAPI = new YouTubeAPI(ytapiKey);
+        final YouTubeAPI youtubeAPI = new YouTubeAPI(ytapiKey);
+        String userQuery = Objects.requireNonNull(event.getOption("term")).getAsString();
+        String urlType = urlCheck.getURLType(userQuery);
         try {
-            String userQuery = Objects.requireNonNull(event.getOption("term")).getAsString();
-            if (urlCheck.isURL(userQuery) && !urlCheck.getURLType(userQuery).equals("spotify")&&!urlCheck.getURLType(userQuery).equals("spotify-playlist")) { //The term is a URL
-                event.reply("Found Video: " + userQuery).queue();
+            switch (urlType) {
+                case "spotify":
+                    event.deferReply().queue();
+                    event.getHook().sendMessage("Matched Video From Spotify: " + youtubeAPI.returnTopVideoURL(SpotifyAPI.getSearchTerm_sync(urlCheck.getSpotifyTrackID(userQuery)))).queue();
+                    loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(SpotifyAPI.getSearchTerm_sync(urlCheck.getSpotifyTrackID(userQuery))), true);
+                    break;
+                case "spotify-playlist":
+                    event.deferReply().queue();
+                    PlaylistTrack[] playlist = SpotifyAPI.getPlaylist_Sync(urlCheck.getSpotifyPlaylistID(userQuery));
+                    if (playlist == null) {
+                        event.getHook().sendMessage("Error: Could not find playlist").queue();
+                        return;
+                    } else if (playlist.length > MAX_SP_PLAYLIST_SIZE) {
+                        PlaylistTrack[] slicedPlaylist = Arrays.copyOfRange(playlist, 0, MAX_SP_PLAYLIST_SIZE);
+                        event.getHook().sendMessage("Spotify Playlist Detected! But its too long, queueing the first " + MAX_SP_PLAYLIST_SIZE + " songs").queue();
+                        playlist = slicedPlaylist;
+                    } else {
+                        event.getHook().sendMessage("Spotify Playlist Detected! Queueing " + playlist.length + " songs").queue();
+                    }
 
-                loadAndPlay((TextChannel) event.getChannel(), userQuery, false);
+                    for (PlaylistTrack playlistTrack : playlist) {
+                        loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(SpotifyAPI.getSearchTerm_sync(playlistTrack.getTrack().getId())), false);
+                    }
+                    break;
+                case "yt":
+                    event.reply("Found Video: " + userQuery).queue();
+                    loadAndPlay((TextChannel) event.getChannel(), userQuery, false);
+                    break;
+                case "yt-playlist":
+                    event.deferReply().queue();
+                    String playlistID = urlCheck.getYouTubePlaylistID(userQuery);
+                    System.out.println(playlistID);
+                    String[] playlistURLS = youtubeAPI.getPlaylistVideoURLs(playlistID, MAX_SP_PLAYLIST_SIZE);
+                    if (playlistURLS.length > MAX_SP_PLAYLIST_SIZE) {
+                        String[] slicedPlaylist = Arrays.copyOfRange(playlistURLS, 0, MAX_SP_PLAYLIST_SIZE);
+                        event.getHook().sendMessage("YouTube Playlist Detected! But its too long, queueing the first " + MAX_SP_PLAYLIST_SIZE + " songs").queue();
+                        playlistURLS = slicedPlaylist;
+                    } else {
+                        event.getHook().sendMessage("YouTube Playlist Detected! Queueing " + playlistURLS.length + " songs").queue();
+                    }
+                    for (String videoURL : playlistURLS) {
+                        loadAndPlay((TextChannel) event.getChannel(), videoURL, false);
+                    }
+                    break;
+                default:
+                    System.out.println(urlCheck.getURLType(userQuery) + "  was not handled");
+                    String top_video = youtubeAPI.returnTopVideoURL(userQuery);
+                    event.reply("Found Video: " + top_video).queue();
+                    loadAndPlay((TextChannel) event.getChannel(), top_video, true);
+                    break;
             }
-            else {
-                try {
-                    if (urlCheck.getURLType(userQuery).equals("spotify")){
-
-                        event.deferReply().queue();
-                        event.getHook().sendMessage("Matched Video From Spotify: " + youtubeAPI.returnTopVideoURL(SpotifyAPI.getSearchTerm_sync(urlCheck.getSpotifyTrackID(userQuery)))).queue();
-                        loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(SpotifyAPI.getSearchTerm_sync(urlCheck.getSpotifyTrackID(userQuery))), true);
-                    }
-                    else if(urlCheck.getURLType(userQuery).equals("spotify-playlist")){
-                        event.deferReply().queue();
-                        //TODO: Add playlist support using selection menu
-                        PlaylistTrack[] playlist = SpotifyAPI.getPlaylist_Sync(urlCheck.getSpotifyPlaylistID(userQuery));
-                        if (playlist == null){
-                            event.getHook().sendMessage("Error: Could not find playlist").queue();
-                            return;
-                        }
-                        else if(playlist.length>MAX_SP_PLAYLIST_SIZE){
-                            PlaylistTrack[] slicedPlaylist = Arrays.copyOfRange(playlist, 0, MAX_SP_PLAYLIST_SIZE);
-                            event.getHook().sendMessage("Spotify Playlist Detected! But its too long, queueing the first " + MAX_SP_PLAYLIST_SIZE + " songs").queue();
-                            playlist = slicedPlaylist;
-                        }
-                        else{
-                            event.getHook().sendMessage("Spotify Playlist Detected! Queueing " + playlist.length + " songs").queue();
-                        }
-
-                        for (PlaylistTrack playlistTrack : playlist) {
-                            loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(SpotifyAPI.getSearchTerm_sync(playlistTrack.getTrack().getId())), false);
-                        }
-                    }
-                    else {
-                        String top_video = youtubeAPI.returnTopVideoURL(userQuery);
-                        event.reply("Found Video: " + top_video).queue();
-                        loadAndPlay((TextChannel) event.getChannel(), top_video, true);
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    event.reply("An error has occured please check the Bot logs for more details").queue();
-                }
-            }
-
-        }
-        catch(Exception e){
-            event.reply("Error! Hazukashii! " + e);
+        } catch (IOException e) {
+            e.printStackTrace();
+            event.reply("An error has occured please check the Bot logs for more details").queue();
         }
     }
 
@@ -341,6 +327,7 @@ public class Music extends ListenerAdapter {
             String position = getTimestamp(currentTrack.getPosition());
             String duration = getTimestamp(currentTrack.getDuration());
             switch (currentTrackUrlType) {
+                case "yt-playlist":
                 case "yt": { //YOUTUBE EMBED
                     EmbedBuilder embed = embedMaker.makeNowPlayingEmbed(currentTrack, position, duration,
                             "https://img.youtube.com/vi/" + currentTrack.getIdentifier() + "/hqdefault.jpg",

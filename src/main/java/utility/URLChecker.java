@@ -5,9 +5,14 @@ public class URLChecker {
         return term.matches("^(http|https)://.*");
     }
     public String getURLType(String url) {
-        if (url.matches("^((?:https?:)?\\/\\/)?((?:www|m)\\.)?((?:youtube(-nocookie)?\\.com|youtu.be))(\\/(?:[\\w\\-]+\\?v=|embed\\/|v\\/)?)([\\w\\-]+)(\\S+)?$")) {
+        if(url.matches("^((?:https?:)?\\/\\/)?((?:www|m)\\.)?youtube\\.com\\/playlist\\?list=([\\w\\-]+)$")){
+            System.out.println("yt-playlist");
+            return "yt-playlist";
+        }
+        else if (url.matches("^((?:https?:)?\\/\\/)?((?:www|m)\\.)?((?:youtube(-nocookie)?\\.com|youtu.be))(\\/(?:[\\w\\-]+\\?v=|embed\\/|v\\/)?)([\\w\\-]+)(\\S+)?$")) {
             return "yt"; //Youtube
-        } else if (url.matches("^(https?:\\/\\/)?(www.)?(m\\.)?soundcloud\\.com\\/[\\w\\-\\.]+(\\/)+[\\w\\-\\.]+/?$")) {
+        }
+        else if (url.matches("^(https?:\\/\\/)?(www.)?(m\\.)?soundcloud\\.com\\/[\\w\\-\\.]+(\\/)+[\\w\\-\\.]+/?$")) {
             return "snd";
         } else if (url.matches("^(?:https?:\\/\\/)?(?:www\\.|go\\.)?twitch\\.tv\\/([a-z0-9_]+)($|\\?)")) {
             return "twitch";
@@ -27,5 +32,8 @@ public class URLChecker {
         String[] uriParts = url.split("\\?si=");
         return uriParts[0].replaceAll("https://open.spotify.com/playlist/","");
 
+    }
+    public String getYouTubePlaylistID(String url){
+        return url.split("list=")[1];
     }
 }
