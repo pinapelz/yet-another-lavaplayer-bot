@@ -9,7 +9,6 @@ import java.util.Objects;
 
 public class CommandManager extends ListenerAdapter {
     Music music;
-    String songDatabase = "YOUR_LIST_OF_YOUTUBE_LINKS_OR_AUDIO_URLS_HERE";
     public CommandManager(Music music){
         this.music = music;
     }
@@ -27,11 +26,6 @@ public class CommandManager extends ListenerAdapter {
                 break;
             case "queue-recursive":
                 music.recursiveQueue(event, event.getOption("url").getAsString(), Integer.parseInt(event.getOption("amount").getAsString()));
-                break;
-            case "vtmusic":
-                event.deferReply().queue();
-                music.queueTrackFromLoadedList(event, Integer.parseInt(Objects.requireNonNull(event.getOption("number")).getAsString()), songDatabase);
-                event.getHook().sendMessage("Queued up " + Integer.parseInt(Objects.requireNonNull(event.getOption("number")).getAsString()) + " songs!").queue();
                 break;
             case "showqueue":
                 music.showQueue(event);
