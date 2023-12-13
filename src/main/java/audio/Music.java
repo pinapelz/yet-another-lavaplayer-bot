@@ -265,7 +265,7 @@ public class Music extends ListenerAdapter {
                         event.getHook().sendMessage("Text Playlist Detected! Queueing " + urls.length + " songs").queue();
                     }
                     for (String url : urls) {
-                        loadAndPlay((TextChannel) event.getChannel(), url, true);
+                        loadAndPlay((TextChannel) event.getChannel(), url, false);
                     }
                     break;
                 case "search-term":
