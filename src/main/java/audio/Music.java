@@ -152,12 +152,11 @@ public class Music extends ListenerAdapter {
                 int trackCount = 0;
                 for (AudioTrack track : queue)
                 {
-                    if (trackCount != 25)
-                    {
-                        SelectOption option = SelectOption.of(track.getInfo().title,param+" "+track.getInfo().title);
-                        trackMenuOptions.add(option);
-                        trackCount++;
-                    }
+                    if(trackCount == 25)
+                        break;
+                    SelectOption option = SelectOption.of(track.getInfo().title,param+" "+track.getInfo().title);
+                    trackMenuOptions.add(option);
+                    trackCount++;
                 }
                 StringSelectMenu menu = StringSelectMenu.create("menu:class")
                         .setPlaceholder("-Select a track-") // shows the placeholder indicating what this menu is for
@@ -270,7 +269,7 @@ public class Music extends ListenerAdapter {
                     break;
                 case "search-term":
                     event.reply("Searching for: " + userQuery).queue();
-                    loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(userQuery), false);
+                    loadAndPlay((TextChannel) event.getChannel(), youtubeAPI.returnTopVideoURL(userQuery), true);
                     break;
                 default:
                     System.out.println(urlCheck.getURLType(userQuery) + "  was not handled");
@@ -305,6 +304,73 @@ public class Music extends ListenerAdapter {
             catch (NumberFormatException e)
             {
                 event.reply("`" + command + "` is not a valid integer. (10 - 100)").queue();
+            }
+        }
+    }
+
+    public void popTrackFromQueue(SlashCommandInteractionEvent event){
+        Queue<AudioTrack> queue = getGuildAudioPlayer(event.getGuild()).scheduler.queue;
+        BlockingQueue<AudioTrack> newQueue =  new LinkedBlockingQueue<>();
+        String index = Objects.requireNonNull(event.getOption("index")).getAsString();
+        int trackIndex = Integer.parseInt(index);
+        synchronized (queue) {
+            if (queue.isEmpty())
+            {
+                event.reply("The queue is currently empty!").queue();
+            }
+            else if(trackIndex <= 0 || trackIndex > queue.size()){
+                event.reply("Invalid index!").queue();
+            }
+            else {
+                int trackCount = 1;
+                for (AudioTrack track : queue) {
+                    if (trackCount != trackIndex) {
+                        newQueue.add(track);
+                    }
+                    else{
+                        event.reply("Removed " + track.getInfo().title + " from the queue!").queue();
+                    }
+                    trackCount++;
+                }
+                getGuildAudioPlayer(event.getGuild()).scheduler.queue = newQueue;
+            }
+
+        }
+
+    }
+
+    public void boostToTop(SlashCommandInteractionEvent event){
+        // GIven some index in the queue, move that song to the top of the queue
+        Queue<AudioTrack> queue = getGuildAudioPlayer(event.getGuild()).scheduler.queue;
+        BlockingQueue<AudioTrack> newQueue =  new LinkedBlockingQueue<>();
+        String index = Objects.requireNonNull(event.getOption("index")).getAsString();
+        int trackIndex = Integer.parseInt(index);
+        synchronized (queue) {
+            if (queue.isEmpty())
+            {
+                event.reply("The queue is currently empty!").queue();
+            }
+            else if(trackIndex <= 0 || trackIndex > queue.size()){
+                event.reply("Invalid index!").queue();
+            }
+            else {
+                int trackCount = 1;
+                AudioTrack trackToMove = null;
+                for (AudioTrack track : queue) {
+                    if (trackCount == trackIndex) {
+                        trackToMove = track;
+                    }
+                    else{
+                        newQueue.add(track);
+                    }
+                    trackCount++;
+                }
+                // Create a new queue with the track to move at the beginning
+                BlockingQueue<AudioTrack> finalQueue = new LinkedBlockingQueue<>();
+                finalQueue.add(trackToMove);
+                finalQueue.addAll(newQueue);
+                getGuildAudioPlayer(event.getGuild()).scheduler.queue = finalQueue;
+                event.reply("Moved " + trackToMove.getInfo().title + " to the top of the queue!").queue();
             }
         }
     }

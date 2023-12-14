@@ -45,6 +45,13 @@ public class StatusHandler {
                 .addCommands(
                         Commands.slash("volume", "Set the volume or leave blank to check current volume").
                                 addOption(OptionType.INTEGER, "volume", "Volume from 0-100"))
+                .addCommands(
+                        Commands.slash("pop", "Pop a particular song by index from the queue").
+                                addOption(OptionType.INTEGER, "index", "Index of the song to pop", true))
+                .addCommands(
+                        Commands.slash("boost", "Boost a particular song by index from the queue").
+                                addOption(OptionType.INTEGER, "index", "Index of the song to boost", true)
+                )
                 .queue();
 
     }

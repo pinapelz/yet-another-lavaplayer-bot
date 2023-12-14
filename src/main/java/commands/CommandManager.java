@@ -59,7 +59,12 @@ public class CommandManager extends ListenerAdapter {
                 break;
             case "remove":
                 music.showQueueMenu(event, "remove-queue", "Select a track to remove below");
-
+                break;
+            case "pop":
+                music.popTrackFromQueue(event);
+                break;
+            case "boost":
+                music.boostToTop(event);
                 break;
             case "inspect":
                 music.showQueueMenu(event, "inspect-queue", "Select a track to inspect below");
