@@ -24,15 +24,14 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import net.dv8tion.jda.api.interactions.components.selections.SelectOption;
+import net.dv8tion.jda.api.components.selections.StringSelectMenu;
+import net.dv8tion.jda.api.components.selections.SelectOption;
 
-import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.managers.AudioManager;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import se.michaelthelin.spotify.model_objects.specification.PlaylistTrack;
 import utility.*;
-import javax.security.auth.login.LoginException;
 import java.awt.*;
 import java.io.*;
 import java.net.MalformedURLException;
@@ -165,7 +164,7 @@ public class Music extends ListenerAdapter {
                         .build();
                 event.reply(instruction)
                         .setEphemeral(true)
-                        .addActionRow(menu)
+                        .addContent(String.valueOf(menu))
                         .queue();
 
             }

@@ -9,7 +9,10 @@ import se.michaelthelin.spotify.requests.authorization.client_credentials.Client
 import se.michaelthelin.spotify.requests.data.playlists.GetPlaylistRequest;
 import se.michaelthelin.spotify.requests.data.tracks.GetTrackRequest;
 import java.time.Instant;
+import io.github.cdimascio.dotenv.Dotenv;
+
 public class SpotifyAPI {
+    private static final Dotenv dotenv = Dotenv.load();
     private static final String clientId = readSetting("spotifyClientID");
     private static final String clientSecret = readSetting("spotifyClientSecret");
     public static long lastRefresh = 0;
@@ -79,10 +82,8 @@ public class SpotifyAPI {
     }
     public static String readSetting(String parameter){
         String value = System.getenv(parameter);
-        if (value != null) {
-            return value;
-        }
-        throw new RuntimeException("Environment variable " + parameter + " not found");
+        if (value != null) return value;
+        return dotenv.get(parameter);
     }
     public static  void checkRefreshToken(){
         long unixTime = Instant.now().getEpochSecond();
